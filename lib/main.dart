@@ -24,7 +24,9 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'BhaGo',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(useMaterial3: true, colorSchemeSeed: const Color(0xFF1DB954)),
+        theme: ThemeData(
+          
+          useMaterial3: true, colorSchemeSeed: const Color(0xFF1DB954)),
         darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark, colorSchemeSeed: const Color(0xFF1DB954)),
         themeMode: ThemeMode.system,
         home: const DashboardView(), // no param needed now

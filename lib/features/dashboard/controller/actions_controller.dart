@@ -5,21 +5,82 @@ import '../presentation/pages/pages.dart';
 
 class ActionsController extends ChangeNotifier {
   // Master list of all pages in the app
-  final List<ActionItem> _all = const [
-    ActionItem(id: 'home',       label: 'Home',       icon: Icons.dashboard_outlined,          page: HomePage()),
-    ActionItem(id: 'sales',      label: 'Sales',      icon: Icons.point_of_sale_outlined,      page: SalesPage()),
-    ActionItem(id: 'purchase',   label: 'Purchase',   icon: Icons.shopping_cart_outlined,      page: PurchasePage()),
-    ActionItem(id: 'products',   label: 'Products',   icon: Icons.inventory_2_outlined,        page: ProductPage()),
-    ActionItem(id: 'quotes',     label: 'Quotations', icon: Icons.request_quote_outlined,      page: QuotationsPage()),
-    ActionItem(id: 'reports',    label: 'Reports',    icon: Icons.receipt_long_outlined,       page: ReportPage()),
-    ActionItem(id: 'finance',    label: 'Finance',    icon: Icons.account_balance_wallet_outlined, page: FinancePage()),
-    ActionItem(id: 'customers',  label: 'Customers',  icon: Icons.people_outline,              page: CustomersPage()),
-    ActionItem(id: 'vendors',    label: 'Vendors',    icon: Icons.store_mall_directory_outlined, page: VendorsPage()),
-    ActionItem(id: 'settings',   label: 'Settings',   icon: Icons.settings_outlined,           page: SettingPage()),
-  ];
+final List<ActionItem> _all = const [
+  ActionItem(
+    id: 'home',
+    label: 'Home',
+    icon: Icons.dashboard_outlined,
+    page: HomePage(),
+    color: Colors.blueAccent,
+  ),
+  ActionItem(
+    id: 'sales',
+    label: 'Sales',
+    icon: Icons.point_of_sale_outlined,
+    page: SalesPage(),
+    color: Colors.green,
+  ),
+  ActionItem(
+    id: 'purchase',
+    label: 'Purchase',
+    icon: Icons.shopping_cart_outlined,
+    page: PurchasePage(),
+    color: Colors.orange,
+  ),
+  ActionItem(
+    id: 'products',
+    label: 'Products',
+    icon: Icons.inventory_2_outlined,
+    page: ProductPage(),
+    color: Colors.deepPurple,
+  ),
+  ActionItem(
+    id: 'quotes',
+    label: 'Quotations',
+    icon: Icons.request_quote_outlined,
+    page: QuotationsPage(),
+    color: Colors.teal,
+  ),
+  ActionItem(
+    id: 'reports',
+    label: 'Reports',
+    icon: Icons.receipt_long_outlined,
+    page: ReportPage(),
+    color: Colors.pinkAccent,
+  ),
+  ActionItem(
+    id: 'finance',
+    label: 'Finance',
+    icon: Icons.account_balance_wallet_outlined,
+    page: FinancePage(),
+    color: Colors.indigo,
+  ),
+  ActionItem(
+    id: 'customers',
+    label: 'Customers',
+    icon: Icons.people_outline,
+    page: CustomersPage(),
+    color: Colors.cyan,
+  ),
+  ActionItem(
+    id: 'vendors',
+    label: 'Vendors',
+    icon: Icons.store_mall_directory_outlined,
+    page: VendorsPage(),
+    color: Colors.redAccent,
+  ),
+  ActionItem(
+    id: 'settings',
+    label: 'Settings',
+    icon: Icons.settings_outlined,
+    page: SettingPage(),
+    color: Colors.brown,
+  ),
+];
+
 
   // Favorites (ids) and selected index within favorites
-  List<String> _favoriteIds = ['home', 'sales', 'purchase', 'products'];
+  List<String> _favoriteIds = ['home', ];
   int _selectedIndex = 0;
 
   // ===== Getters expected by your UI =====
@@ -27,16 +88,33 @@ class ActionsController extends ChangeNotifier {
   List<ActionItem> get favorites =>
       _favoriteIds.map((id) => _all.firstWhere((a) => a.id == id)).toList();
   int get selectedFavoriteIndex => _selectedIndex;
-  ActionItem get selectedAction =>
-      favorites[_selectedIndex.clamp(0, favorites.length - 1)];
+
+ActionItem get selectedAction {
+  if (favorites.isEmpty) {
+    // return a default page instead of crashing
+    return _all.first; // or some default ActionItem
+  }
+  return favorites[_selectedIndex.clamp(0, favorites.length - 1)];
+}
 
   // ===== Persistence =====
-  Future<void> load() async {
-    final sp = await SharedPreferences.getInstance();
-    _favoriteIds = sp.getStringList('fav_ids') ?? _favoriteIds;
-    _selectedIndex = sp.getInt('fav_sel') ?? 0;
-    notifyListeners();
+Future<void> load() async {
+  final sp = await SharedPreferences.getInstance();
+  _favoriteIds = sp.getStringList('fav_ids') ?? _favoriteIds;
+  _selectedIndex = sp.getInt('fav_sel') ?? 0;
+
+  if (_favoriteIds.isEmpty) {
+    _favoriteIds = ['home', 'sales']; // defaults
+    _selectedIndex = 0;
   }
+
+  if (_selectedIndex >= _favoriteIds.length) {
+    _selectedIndex = 0;
+  }
+
+  notifyListeners();
+}
+
 
   Future<void> _persist() async {
     final sp = await SharedPreferences.getInstance();
