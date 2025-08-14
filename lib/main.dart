@@ -1,36 +1,45 @@
+import 'package:bhago/features/dashboard/controller/theme_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'features/dashboard/controller/actions_controller.dart';
 import 'features/dashboard/presentation/dashboard_view.dart';
+// import your baseLight/baseDark themes (or keep your ThemeData directly)
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Create and preload controller BEFORE runApp
   final actions = ActionsController();
   await actions.load();
 
-  runApp(MyApp(actions: actions));
+  final themeCtrl = ThemeController();
+  await themeCtrl.load();
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: actions),
+        ChangeNotifierProvider.value(value: themeCtrl),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
-  final ActionsController actions;
-  const MyApp({super.key, required this.actions});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ActionsController>.value(
-      value: actions, // <-- Provider is now ABOVE MaterialApp/Navigator
-      child: MaterialApp(
-        title: 'BhaGo',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          
-          useMaterial3: true, colorSchemeSeed: const Color(0xFF1DB954)),
-        darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark, colorSchemeSeed: const Color(0xFF1DB954)),
-        themeMode: ThemeMode.system,
-        home: const DashboardView(), // no param needed now
-      ),
+    final themeCtrl = context.watch<ThemeController>();
+
+    return MaterialApp(
+      title: 'BhaGo',
+      debugShowCheckedModeBanner: false,
+      themeMode: themeCtrl.themeMode,
+      theme: ThemeData(useMaterial3: true, colorSchemeSeed: const Color(0xFF1DB954)),
+      darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark, colorSchemeSeed: const Color(0xFF1DB954)),
+      home: const DashboardView(),
     );
   }
 }
