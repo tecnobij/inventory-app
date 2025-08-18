@@ -118,23 +118,59 @@ class DashboardView extends StatelessWidget {
 
     if (useWide) {
       // Desktop/Landscape — Sidebar + content
-      return Scaffold(
-        appBar: appBar,
-        body: Row(
-          children: [
-            SideBar(
-              width: 220,
-              onOpenAll: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ManageActionsPage()),
-                );
-              },
-            ),
-            const VerticalDivider(width: 1),
-            Expanded(child: content),
-          ],
+     return Scaffold(
+  appBar: appBar,
+  body: Row(
+    children: [
+      // Sidebar wrapped in a decorated container
+      Container(
+        width: 220,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.8),
+              Theme.of(context).colorScheme.surface,
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          border: Border(
+            right: BorderSide(color: Theme.of(context).dividerColor),
+          ),
         ),
-      );
+        child: SideBar(
+          width: 220,
+          onOpenAll: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ManageActionsPage()),
+            );
+          },
+        ),
+      ),
+      const VerticalDivider(width: 1, thickness: 0.8),
+      // Main content with subtle background
+      Expanded(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).colorScheme.background,
+                Theme.of(context).colorScheme.surface.withOpacity(0.9),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: content,
+          ),
+        ),
+      ),
+    ],
+  ),
+);
+
     } else {
       // Portrait mode
       final favs = ctrl.favorites;
