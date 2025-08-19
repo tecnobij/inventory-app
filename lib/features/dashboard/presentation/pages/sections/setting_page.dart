@@ -97,8 +97,26 @@ class _SettingsPageInnerState extends State<_SettingsPageInner> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _chipTitle(icon: Icons.apartment, label: 'Organization Details'),
+                              
+                              Row(
+                                children: [
+                                  _chipTitle(icon: Icons.apartment, label: 'Organization Details'),
+                                  SizedBox(width: 10,),
+                                   _dirty
+              ? Row(children: [
+                  const _Dot(color: Colors.orange),
+                  const SizedBox(width: 8),
+                  Text('Unsaved changes', style: theme.textTheme.bodyMedium),
+                ])
+              : Row(children: [
+                  const _Dot(color: Colors.green),
+                  const SizedBox(width: 8),
+                  Text('All changes saved', style: theme.textTheme.bodyMedium),
+                ]),
+                                ],
+                              ),
                               const SizedBox(height: 18),
+                              
                               _grid(
                                 wide,
                                 children: [
@@ -201,17 +219,7 @@ class _SettingsPageInnerState extends State<_SettingsPageInner> {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10 + 10), // +10 for safe area-ish
       child: Row(
         children: [
-          _dirty
-              ? Row(children: [
-                  const _Dot(color: Colors.orange),
-                  const SizedBox(width: 8),
-                  Text('Unsaved changes', style: theme.textTheme.bodyMedium),
-                ])
-              : Row(children: [
-                  const _Dot(color: Colors.green),
-                  const SizedBox(width: 8),
-                  Text('All changes saved', style: theme.textTheme.bodyMedium),
-                ]),
+         
           const Spacer(),
           OutlinedButton.icon(
             icon: const Icon(Icons.refresh),
@@ -390,104 +398,106 @@ class _SettingsPageInnerState extends State<_SettingsPageInner> {
       _KV('Pincode', p.pincode),
     ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 24,
-              child: Text(initials, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(p.orgName.isEmpty ? '—' : p.orgName,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                  Text(p.email.isEmpty ? 'No email' : p.email,
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
-                ],
-              ),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                gradient: badgeGradient,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: Row(
-                children: [
-                  const Icon(Icons.shield_outlined, size: 16, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text(
-                    p.gst.isEmpty ? 'GST —' : 'GST OK',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        const Divider(),
-        ...rows.map((e) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 110,
-                    child: Text(e.k, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(e.v.isEmpty ? '—' : e.v)),
-                ],
-              ),
-            )),
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Wrap(
-            spacing: 8,
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              TextButton.icon(
-                icon: const Icon(Icons.download_outlined),
-                label: const Text('Load Saved'),
-                onPressed: () {
-                  final sp = context.read<SettingsProvider>();
-                  _orgCtrl.text = sp.orgName;
-                  _ownerCtrl.text = sp.ownerName;
-                  _emailCtrl.text = sp.email;
-                  _phoneCtrl.text = sp.phone;
-                  _gstCtrl.text = sp.gst;
-                  _addressCtrl.text = sp.address;
-                  _cityCtrl.text = sp.city;
-                  _stateCtrl.text = sp.stateName;
-                  _pincodeCtrl.text = sp.pincode;
-                  setState(() => _dirty = false);
-                },
+              CircleAvatar(
+                radius: 24,
+                child: Text(initials, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
               ),
-              TextButton.icon(
-                icon: const Icon(Icons.copy_all_outlined),
-                label: const Text('Copy JSON'),
-                onPressed: () {
-                  final jsonText =
-                      '{'
-                      '"orgName":"${p.orgName}","ownerName":"${p.ownerName}","email":"${p.email}",'
-                      '"phone":"${p.phone}","gst":"${p.gst}","address":"${p.address}",'
-                      '"city":"${p.city}","state":"${p.stateName}","pincode":"${p.pincode}"'
-                      '}';
-                  Clipboard.setData(ClipboardData(text: jsonText));
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
-                },
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(p.orgName.isEmpty ? '—' : p.orgName,
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(p.email.isEmpty ? 'No email' : p.email,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
+                  ],
+                ),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: badgeGradient,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shield_outlined, size: 16, color: Colors.white),
+                    const SizedBox(width: 6),
+                    Text(
+                      p.gst.isEmpty ? 'GST —' : 'GST OK',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          const Divider(),
+          ...rows.map((e) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 110,
+                      child: Text(e.k, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(e.v.isEmpty ? '—' : e.v)),
+                  ],
+                ),
+              )),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.download_outlined),
+                  label: const Text('Load Saved'),
+                  onPressed: () {
+                    final sp = context.read<SettingsProvider>();
+                    _orgCtrl.text = sp.orgName;
+                    _ownerCtrl.text = sp.ownerName;
+                    _emailCtrl.text = sp.email;
+                    _phoneCtrl.text = sp.phone;
+                    _gstCtrl.text = sp.gst;
+                    _addressCtrl.text = sp.address;
+                    _cityCtrl.text = sp.city;
+                    _stateCtrl.text = sp.stateName;
+                    _pincodeCtrl.text = sp.pincode;
+                    setState(() => _dirty = false);
+                  },
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.copy_all_outlined),
+                  label: const Text('Copy JSON'),
+                  onPressed: () {
+                    final jsonText =
+                        '{'
+                        '"orgName":"${p.orgName}","ownerName":"${p.ownerName}","email":"${p.email}",'
+                        '"phone":"${p.phone}","gst":"${p.gst}","address":"${p.address}",'
+                        '"city":"${p.city}","state":"${p.stateName}","pincode":"${p.pincode}"'
+                        '}';
+                    Clipboard.setData(ClipboardData(text: jsonText));
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
