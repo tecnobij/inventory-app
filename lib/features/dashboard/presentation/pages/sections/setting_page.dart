@@ -1,4 +1,5 @@
 import 'package:bhago/features/dashboard/controller/settings_controller.dart';
+import 'package:bhago/features/dashboard/presentation/dashboard_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,10 +9,12 @@ class SettingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
+    // We assume SettingsProvider is provided at app root (as in your main()).
+    // If not, wrap this with a ChangeNotifierProvider<SettingsProvider>()..load()
     return const _SettingsPageInner();
   }
 }
+
 class _SettingsPageInner extends StatefulWidget {
   const _SettingsPageInner();
 
@@ -20,19 +23,27 @@ class _SettingsPageInner extends StatefulWidget {
 }
 
 class _SettingsPageInnerState extends State<_SettingsPageInner> {
+  // ---------- Common controllers (also used by onboarding) ----------
   final _formKey = GlobalKey<FormState>();
   final _orgCtrl = TextEditingController();
-  final _ownerCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _gstCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
-  final _cityCtrl = TextEditingController();
-  final _stateCtrl = TextEditingController();
-  final _pincodeCtrl = TextEditingController();
+  final _ownerCtrl = TextEditingController(); // used only in full settings
+  final _logoCtrl = TextEditingController(text: 'No file chosen');
 
   bool _seeded = false;
   bool _dirty = false;
+
+  // Warehouses (Settings tab)
+  final List<_WhRow> _warehouses = [
+    _WhRow('Main Warehouse', '123 Industrial Area, Mumbai', true),
+    _WhRow('Secondary Warehouse', '456 Storage Complex, Delhi', false),
+  ];
+
+  // Onboarding locations
+  final List<_LocationCtrls> _locations = [ _LocationCtrls() ];
 
   @override
   void didChangeDependencies() {
@@ -45,9 +56,6 @@ class _SettingsPageInnerState extends State<_SettingsPageInner> {
       _phoneCtrl.text = p.phone;
       _gstCtrl.text = p.gst;
       _addressCtrl.text = p.address;
-      _cityCtrl.text = p.city;
-      _stateCtrl.text = p.stateName;
-      _pincodeCtrl.text = p.pincode;
       _seeded = true;
     }
   }
@@ -55,321 +63,754 @@ class _SettingsPageInnerState extends State<_SettingsPageInner> {
   @override
   void dispose() {
     _orgCtrl.dispose();
-    _ownerCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _gstCtrl.dispose();
     _addressCtrl.dispose();
-    _cityCtrl.dispose();
-    _stateCtrl.dispose();
-    _pincodeCtrl.dispose();
+    _ownerCtrl.dispose();
+    _logoCtrl.dispose();
+    for (final l in _locations) { l.dispose(); }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final p = context.watch<SettingsProvider>();
 
-    final gradient = const LinearGradient(
-      colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
+    if (!p.loaded) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
+    // ---------- FIRST RUN: Onboarding card ----------
+    if (!p.onboarded) {
+      return Scaffold(
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _onboardingCard(context, p),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // ---------- RETURNING USER: Tabbed Settings ----------
     return Scaffold(
-     
-      bottomNavigationBar: _actionBar(theme, p),
-      body: p.loaded
-          ? LayoutBuilder(
-              builder: (context, c) {
-                final wide = c.maxWidth >= 900;
-
-                final form = _decorCard(
-                  child: Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Form(
-                          key: _formKey,
-                          autovalidateMode: AutovalidateMode.onUserInteraction,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              
-                              Row(
-                                children: [
-                                  _chipTitle(icon: Icons.apartment, label: 'Organization Details'),
-                                  SizedBox(width: 10,),
-                                   _dirty
-              ? Row(children: [
-                  const _Dot(color: Colors.orange),
-                  const SizedBox(width: 8),
-                  Text('Unsaved changes', style: theme.textTheme.bodyMedium),
-                ])
-              : Row(children: [
-                  const _Dot(color: Colors.green),
-                  const SizedBox(width: 8),
-                  Text('All changes saved', style: theme.textTheme.bodyMedium),
-                ]),
-                                ],
-                              ),
-                              const SizedBox(height: 18),
-                              
-                              _grid(
-                                wide,
-                                children: [
-                                  _field(_orgCtrl, 'Organization Name', Icons.business, _req),
-                                  _field(_ownerCtrl, 'Owner / Shopkeeper Name', Icons.person, _req),
-                                  _field(_emailCtrl, 'Email', Icons.email, _email,
-                                      keyboardType: TextInputType.emailAddress,
-                                      helper: 'Used on invoice & contact'),
-                                  _field(_phoneCtrl, 'Phone', Icons.call, _phone,
-                                      keyboardType: TextInputType.phone,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                        LengthLimitingTextInputFormatter(13),
-                                      ]),
-                                ],
-                              ),
-                              const SizedBox(height: 18),
-                              _chipTitle(icon: Icons.receipt_long, label: 'Tax & Address'),
-                              const SizedBox(height:18),
-                              _grid(
-                                wide,
-                                children: [
-                                  _field(_gstCtrl, 'GST Number', Icons.verified, _gst,
-                                      textCap: TextCapitalization.characters,
-                                      helper: '15-char GSTIN, auto uppercased'),
-                                  _field(_addressCtrl, 'Address', Icons.location_on, _req, maxLines: 2),
-                                  _field(_cityCtrl, 'City', Icons.location_city, _req),
-                                  _field(_stateCtrl, 'State', Icons.map, _req),
-                                  _field(_pincodeCtrl, 'Pincode', Icons.numbers, _pin,
-                                      keyboardType: TextInputType.number,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                        LengthLimitingTextInputFormatter(6),
-                                      ]),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              _tipBanner(
-                                icon: Icons.info_outline,
-                                text:
-                                    'These details will appear on invoices, headers, and exports. Keep them accurate.',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+      body: DefaultTabController(
+        length: 4,
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            // Header row with "Settings" and a session-only Skip (won’t show normally)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Text('Settings',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  // (optional) quick exit if you ever reuse this screen as start
+                  TextButton.icon(
+                    icon: const Icon(Icons.arrow_forward_rounded),
+                    label: const Text('Skip for now'),
+                    onPressed: () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (_) => const DashboardView()),
+                      );
+                    },
                   ),
-                );
-
-                final preview = _decorCard(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    child: Padding(
-                      key: ValueKey('${p.orgName}_${p.gst}_${p.email}_${p.phone}_${p.pincode}'),
-                      padding: const EdgeInsets.all(16),
-                      child: _savedPreview(theme, p, gradient),
-                    ),
-                  ),
-                );
-
-                return Container(
-                  decoration: const BoxDecoration(
-                  
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: wide
-                        ? Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(flex: 3, child: form),
-                              const SizedBox(width: 16),
-                              Expanded(flex: 2, child: preview),
-                            ],
-                          )
-                        : ListView(
-                            children: [
-                              form,
-                              const SizedBox(height: 16),
-                              preview,
-                              const SizedBox(height: 72), // space for bottom bar
-                            ],
-                          ),
-                  ),
-                );
-              },
-            )
-          : const Center(child: CircularProgressIndicator()),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9),
+              child: _SegmentedTabs(
+                tabs: const [
+                  (Icons.apartment_outlined, 'Organization'),
+                  (Icons.tag_outlined, 'Numbering'),
+                  (Icons.notifications_none_outlined, 'App Settings'),
+                  (Icons.group_outlined, 'Users'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: TabBarView(
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _orgTab(context),      // Organization tab (your existing form)
+                  _numberingTab(),
+                  _appSettingsTab(),
+                  _usersTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  // ---------- Action bar (sticky bottom) ----------
-  Widget _actionBar(ThemeData theme, SettingsProvider p) {
-    return Container(
-      decoration: BoxDecoration(
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-        color: theme.colorScheme.surface,
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10 + 10), // +10 for safe area-ish
-      child: Row(
-        children: [
-         
-          const Spacer(),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.refresh),
-            label: const Text('Reset Form'),
-            onPressed: () {
-              _resetControllers();
-              setState(() => _dirty = true);
-            },
+  // ===================================================================
+  // ONBOARDING (first screenshot)
+  // ===================================================================
+
+  Widget _onboardingCard(BuildContext context, SettingsProvider p) {
+    final scheme = Theme.of(context).colorScheme;
+    final wide = MediaQuery.of(context).size.width >= 900;
+
+    // local validator for email/org
+    String? req(String? v) => (v == null || v.trim().isEmpty) ? 'Required' : null;
+    String? email(String? v) {
+      if (req(v) != null) return 'Required';
+      final re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+      return re.hasMatch(v!.trim()) ? null : 'Invalid email';
+    }
+
+    InputDecoration _soft(String hint) => InputDecoration(
+          hintText: hint,
+          filled: true,
+          fillColor: scheme.surfaceVariant.withOpacity(.5),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          isDense: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: scheme.outlineVariant),
           ),
-          const SizedBox(width: 12),
-          FilledButton.icon(
-            icon: const Icon(Icons.save_outlined),
-            label: const Text('Save'),
-            onPressed: () async {
-              if (!_formKey.currentState!.validate()) return;
-              await context.read<SettingsProvider>().saveFrom(
-                    orgName: _orgCtrl.text.trim(),
-                    ownerName: _ownerCtrl.text.trim(),
-                    email: _emailCtrl.text.trim(),
-                    phone: _phoneCtrl.text.trim(),
-                    gst: _gstCtrl.text.trim().toUpperCase(),
-                    address: _addressCtrl.text.trim(),
-                    city: _cityCtrl.text.trim(),
-                    stateName: _stateCtrl.text.trim(),
-                    pincode: _pincodeCtrl.text.trim(),
-                  );
-              if (!mounted) return;
-              setState(() => _dirty = false);
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('Settings saved')));
-            },
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: scheme.outlineVariant),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: scheme.primary),
+          ),
+        );
+
+    Widget _title(String s, {bool req = false}) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          children: [
+            Text(s, style: Theme.of(context).textTheme.labelLarge),
+            if (req) const Text(' *', style: TextStyle(color: Colors.red)),
+          ],
+        ),
+      );
+    }
+
+    Widget _twoCol(Widget a, Widget b) {
+      if (!wide) return Column(children: [a, const SizedBox(height: 12), b]);
+      return Row(children: [Expanded(child: a), const SizedBox(width: 12), Expanded(child: b)]);
+    }
+
+    return Card(
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Set up your organization',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+
+              // Info banner
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceVariant.withOpacity(.45),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'You can manage multiple organizations later from the header.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Org + Email
+              _twoCol(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _title('Organization Name', req: true),
+                    TextFormField(
+                      controller: _orgCtrl,
+                      validator: req,
+                      decoration: _soft('Enter organization name'),
+                      onChanged: (_) => setState(() => _dirty = true),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _title('Business Email', req: true),
+                    TextFormField(
+                      controller: _emailCtrl,
+                      validator: email,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: _soft('admin@company.com'),
+                      onChanged: (_) => setState(() => _dirty = true),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Phone + GSTIN
+              _twoCol(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _title('Phone'),
+                    TextFormField(
+                      controller: _phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)],
+                      decoration: _soft('+91 98765 43210'),
+                      onChanged: (_) => setState(() => _dirty = true),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _title('GSTIN'),
+                    TextFormField(
+                      controller: _gstCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: _soft('22AAAAA0000A1Z5'),
+                      onChanged: (_) => setState(() => _dirty = true),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Address full width
+              _title('Address'),
+              TextFormField(
+                controller: _addressCtrl,
+                maxLines: 2,
+                decoration: _soft('Enter complete address'),
+                onChanged: (_) => setState(() => _dirty = true),
+              ),
+              const SizedBox(height: 18),
+
+              // Locations header + Add
+              Row(
+                children: [
+                  Text('Warehouse Locations',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Location'),
+                    onPressed: () => setState(() => _locations.add(_LocationCtrls())),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Location cards
+              for (int idx = 0; idx < _locations.length; idx++) ...[
+                _locationCard(idx, scheme, wide),
+                const SizedBox(height: 12),
+              ],
+
+              const SizedBox(height: 8),
+
+              // Logo upload
+              Text('Logo Upload', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() => _logoCtrl.text = 'company_logo.png');
+                    },
+                    icon: const Icon(Icons.upload_file_outlined),
+                    label: const Text('Choose file'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: _readOnlyChip(_logoCtrl.text)),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () async {
+                        if (!_formKey.currentState!.validate()) return;
+                        await context.read<SettingsProvider>().saveFrom(
+                          orgName: _orgCtrl.text.trim(),
+                          ownerName: _ownerCtrl.text.trim(),
+                          email: _emailCtrl.text.trim(),
+                          phone: _phoneCtrl.text.trim(),
+                          gst: _gstCtrl.text.trim().toUpperCase(),
+                          address: _addressCtrl.text.trim(),
+                          city: _locations.first.city.text.trim(),
+                          stateName: _locations.first.state.text.trim(),
+                          pincode: _locations.first.pincode.text.trim(),
+                        );
+                        // mark onboarded so next time we show the tabs screen
+                        // implement setOnboarded in your provider if missing
+                        await context.read<SettingsProvider>().setOnboarded(true);
+                        if (!mounted) return;
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const DashboardView()),
+                        );
+                      },
+                      child: const Text('Create Organization'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        // Session-only skip: do NOT set onboarded
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const DashboardView()),
+                        );
+                      },
+                      child: const Text('Skip for now'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _locationCard(int index, ColorScheme scheme, bool wide) {
+    final l = _locations[index];
+
+    InputDecoration _soft(String hint) => InputDecoration(
+          hintText: hint,
+          filled: true,
+          fillColor: scheme.surfaceVariant.withOpacity(.5),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          isDense: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: scheme.outlineVariant),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: scheme.outlineVariant),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: scheme.primary),
+          ),
+        );
+
+    Widget twoCol(Widget a, Widget b) {
+      if (!wide) return Column(children: [a, const SizedBox(height: 12), b]);
+      return Row(children: [Expanded(child: a), const SizedBox(width: 12), Expanded(child: b)]);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Location ${index + 1}',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          twoCol(
+            TextFormField(controller: l.name, decoration: _soft('Warehouse Name')),
+            TextFormField(controller: l.address, decoration: _soft('Address')),
+          ),
+          const SizedBox(height: 12),
+          twoCol(
+            TextFormField(controller: l.city, decoration: _soft('City')),
+            TextFormField(controller: l.state, decoration: _soft('State')),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: wide ? 320 : double.infinity,
+            child: TextFormField(
+              controller: l.pincode,
+              decoration: _soft('Pincode'),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+            ),
           ),
         ],
       ),
     );
   }
 
-  // ---------- UI helpers ----------
-  Widget _decorCard({required Widget child}) {
-    return Card(
-      elevation: 0,
-      clipBehavior: Clip.antiAlias,
-      surfaceTintColor: Colors.white,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.black12),
-        ),
-        child: child,
-      ),
-    );
-  }
+  // ===================================================================
+  // EXISTING SETTINGS TABS (second screenshot)
+  // ===================================================================
 
-  Widget _chipTitle({required IconData icon, required String label}) {
-    return Row(
+  Widget _orgTab(BuildContext context) {
+    final theme = Theme.of(context);
+    final wide = MediaQuery.of(context).size.width >= 900;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
       children: [
-        Container(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color.fromARGB(255, 148, 142, 176), Color.fromARGB(255, 51, 66, 117)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        // Organization Profile
+        _SectionCard(
+          header: const _CardHeader(title: 'Organization Profile'),
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _grid(
+                  wide,
+                  children: [
+                    _labeledField(
+                      label: 'Organization Name',
+                      controller: _orgCtrl,
+                      icon: Icons.business_outlined,
+                      validator: _req,
+                    ),
+                    _labeledField(
+                      label: 'GSTIN',
+                      controller: _gstCtrl,
+                      icon: Icons.verified_outlined,
+                      textCap: TextCapitalization.characters,
+                      validator: _gst,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _labeledField(
+                  label: 'Address',
+                  controller: _addressCtrl,
+                  icon: Icons.location_on_outlined,
+                  maxLines: 2,
+                  validator: _req,
+                ),
+                const SizedBox(height: 12),
+                Text('Organization Logo',
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(color: theme.colorScheme.onSurface)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _logoCtrl.text = 'company_logo.png';
+                          _dirty = true;
+                        });
+                      },
+                      icon: const Icon(Icons.upload_file_outlined),
+                      label: const Text('Choose file'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: _readOnlyChip(_logoCtrl.text)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () async {
+                    if (!_formKey.currentState!.validate()) return;
+                    await context.read<SettingsProvider>().saveFrom(
+                      orgName: _orgCtrl.text.trim(),
+                      ownerName: _ownerCtrl.text.trim(),
+                      email: _emailCtrl.text.trim(),
+                      phone: _phoneCtrl.text.trim(),
+                      gst: _gstCtrl.text.trim().toUpperCase(),
+                      address: _addressCtrl.text.trim(),
+                      city: '',
+                      stateName: '',
+                      pincode: '',
+                    );
+                    if (!mounted) return;
+                    setState(() => _dirty = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Settings saved')),
+                    );
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Save Changes'),
+                ),
+              ],
             ),
-            borderRadius: BorderRadius.circular(999),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Row(children: [
-            Icon(icon, size: 16, color: const Color(0xFF4F46E5)),
-            const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-          ]),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Warehouses
+        _SectionCard(
+          header: _CardHeader(
+            title: 'Warehouses',
+            trailing: FilledButton.icon(
+              onPressed: () => _openWarehouseDialog(),
+              icon: const Icon(Icons.add),
+              label: const Text('Add Warehouse'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+          child: _WarehousesTable(
+            rows: _warehouses,
+            onToggle: (i, v) => setState(() => _warehouses[i].enabled = v),
+            onDelete: (i) => setState(() => _warehouses.removeAt(i)),
+            onEdit: (i) => _editWarehouse(context, i),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Account actions
+        _SectionCard(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Account Actions',
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text('Manage your account and session',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: () {/* logout */},
+                icon: const Icon(Icons.logout),
+                label: const Text('Logout'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFEE4E2),
+                  foregroundColor: const Color(0xFFB42318),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
+  // ----- tabs stubs you already had -----
+  Widget _numberingTab() => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _SectionCard(
+            header: const _CardHeader(title: 'Numbering Rules'),
+            child: Column(
+              children: [
+                _labeledField(
+                  label: 'Invoice Prefix',
+                  controller: TextEditingController(text: 'INV-'),
+                  icon: Icons.confirmation_number_outlined,
+                  readOnly: true,
+                ),
+                const SizedBox(height: 12),
+                _labeledField(
+                  label: 'Start From',
+                  controller: TextEditingController(text: '1001'),
+                  icon: Icons.filter_1_outlined,
+                  keyboardType: TextInputType.number,
+                  readOnly: true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+
+  Widget _appSettingsTab() => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _SectionCard(
+            header: const _CardHeader(title: 'Notifications'),
+            child: Column(
+              children: const [
+                _SwitchRow('Low-stock alerts'),
+                _SwitchRow('Daily summary email'),
+              ],
+            ),
+          ),
+        ],
+      );
+
+  Widget _usersTab() => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _SectionCard(
+            header: _CardHeader(
+              title: 'Users',
+              trailing: OutlinedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.person_add_alt_1_outlined),
+                label: const Text('Invite User'),
+              ),
+            ),
+            child: Column(
+              children: const [
+                _UserRow('Amit Chopra', 'Owner'),
+                _UserRow('Riya Sharma', 'Manager'),
+              ],
+            ),
+          ),
+        ],
+      );
+
+  // ===================================================================
+  // Shared UI utilities (unchanged)
+  // ===================================================================
+
   Widget _grid(bool wide, {required List<Widget> children}) {
-    final colCount = wide ? 2 : 1;
-    return GridView.count(
-      crossAxisCount: colCount,
-      childAspectRatio: wide ? 4.6 : 3.8,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      children: children,
-    );
+    if (!wide) return Column(children: _withSpacing(children, 12));
+    return Row(children: [Expanded(child: children[0]), const SizedBox(width: 12), Expanded(child: children[1])]);
   }
 
-  Widget _field(
-    TextEditingController c,
-    String label,
-    IconData icon,
-    String? Function(String?) validator, {
+  List<Widget> _withSpacing(List<Widget> items, double gap) {
+    final out = <Widget>[];
+    for (var i = 0; i < items.length; i++) {
+      out.add(items[i]);
+      if (i != items.length - 1) out.add(SizedBox(height: gap));
+    }
+    return out;
+  }
+
+  Widget _labeledField({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    String? Function(String?)? validator,
     int maxLines = 1,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
-    String? helper,
     TextCapitalization textCap = TextCapitalization.none,
+    bool readOnly = false,
   }) {
-    return TextFormField(
-      controller: c,
-      maxLines: maxLines,
-      textCapitalization: textCap,
-      validator: validator,
-      keyboardType: keyboardType ?? _keyboardTypeFor(label),
-      inputFormatters: inputFormatters,
-      onChanged: (_) => setState(() => _dirty = true),
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        helperText: helper,
-        prefixIcon: Icon(icon),
-        suffixIcon: c.text.isEmpty
-            ? null
-            : IconButton(
-                tooltip: 'Clear',
-                icon: const Icon(Icons.close),
-                onPressed: () {
-                  c.clear();
-                  setState(() => _dirty = true);
-                },
-              ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      ),
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurface)),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          readOnly: readOnly,
+          maxLines: maxLines,
+          textCapitalization: textCap,
+          validator: validator,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          onChanged: (_) => setState(() => _dirty = true),
+          decoration: InputDecoration(
+            isDense: true,
+            prefixIcon: Icon(icon),
+            filled: true,
+            fillColor: theme.colorScheme.surfaceVariant.withOpacity(.5),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: theme.colorScheme.primary),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  TextInputType _keyboardTypeFor(String label) {
-    if (label.contains('Email')) return TextInputType.emailAddress;
-    if (label.contains('Phone') || label.contains('Pincode')) return TextInputType.number;
-    return TextInputType.text;
+  Widget _readOnlyChip(String text) {
+    final theme = Theme.of(context);
+    return Container(
+      height: 48,
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(.5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Text(text, style: theme.textTheme.bodyMedium),
+    );
   }
 
-  // ---------- Validators ----------
   String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'Required' : null;
 
-  String? _email(String? v) {
-    if (_req(v) != null) return 'Required';
-    final re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-    return re.hasMatch(v!.trim()) ? null : 'Invalid email';
-  }
-
-  String? _phone(String? v) {
-    if (_req(v) != null) return 'Required';
-    final s = v!.replaceAll(RegExp(r'[^0-9]'), '');
-    return (s.length >= 7 && s.length <= 13) ? null : 'Invalid phone';
-  }
-
-  // Full GSTIN format check
   String? _gst(String? v) {
     if (_req(v) != null) return 'Required';
     final s = v!.trim().toUpperCase();
@@ -377,186 +818,381 @@ class _SettingsPageInnerState extends State<_SettingsPageInner> {
     return re.hasMatch(s) ? null : 'Invalid GSTIN format';
   }
 
-  String? _pin(String? v) {
-    if (_req(v) != null) return 'Required';
-    final s = v!.trim();
-    return RegExp(r'^\d{6}$').hasMatch(s) ? null : 'Invalid pincode';
-  }
+  // ---------- Warehouses helpers ----------
+  Future<void> _editWarehouse(BuildContext context, int i) async =>
+      _openWarehouseDialog(index: i);
 
-  // ---------- Preview ----------
-  Widget _savedPreview(ThemeData theme, SettingsProvider p, Gradient badgeGradient) {
-    final initials = _initials(p.orgName);
-    final rows = <_KV>[
-      _KV('Organization', p.orgName),
-      _KV('Owner', p.ownerName),
-      _KV('Email', p.email),
-      _KV('Phone', p.phone),
-      _KV('GST', p.gst),
-      _KV('Address', p.address),
-      _KV('City', p.city),
-      _KV('State', p.stateName),
-      _KV('Pincode', p.pincode),
-    ];
+  Future<void> _openWarehouseDialog({int? index}) async {
+    final isAdd = index == null;
+    final nameCtrl = TextEditingController(text: isAdd ? '' : _warehouses[index!].name);
+    final addrCtrl = TextEditingController(text: isAdd ? '' : _warehouses[index!].address);
+    bool active = isAdd ? true : _warehouses[index!].enabled;
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                child: Text(initials, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+    final row = await showDialog<_WhRow>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final scheme = Theme.of(ctx).colorScheme;
+
+        InputDecoration _soft(String hint) => InputDecoration(
+              hintText: hint,
+              filled: true,
+              fillColor: scheme.surfaceVariant.withOpacity(.5),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: scheme.outlineVariant, width: 1.2),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(p.orgName.isEmpty ? '—' : p.orgName,
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    Text(p.email.isEmpty ? 'No email' : p.email,
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
-                  ],
-                ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: scheme.outlineVariant, width: 1.2),
               ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: badgeGradient,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                child: Row(
-                  children: [
-                    const Icon(Icons.shield_outlined, size: 16, color: Colors.white),
-                    const SizedBox(width: 6),
-                    Text(
-                      p.gst.isEmpty ? 'GST —' : 'GST OK',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: scheme.outline, width: 1.6),
               ),
-            ],
+            );
+
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            isAdd ? 'Add New Warehouse' : 'Edit Warehouse',
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const Spacer(),
+                          IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Warehouse Name', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      TextField(controller: nameCtrl, decoration: _soft('Enter warehouse name')),
+                      const SizedBox(height: 16),
+                      Text('Address', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      TextField(controller: addrCtrl, decoration: _soft('Enter complete address')),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Switch.adaptive(
+                            activeColor: Colors.black,
+                            value: active, onChanged: (v) => setState(() => active = v)),
+                          const SizedBox(width: 8),
+                          Text('Active', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () {
+                                final r = _WhRow(nameCtrl.text.trim(), addrCtrl.text.trim(), active);
+                                Navigator.pop(context, r);
+                              },
+                              child: Text(isAdd ? 'Add Warehouse' : 'Save Changes'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
-          const SizedBox(height: 12),
-          const Divider(),
-          ...rows.map((e) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
+        );
+      },
+    );
+
+    if (row != null) {
+      setState(() {
+        if (isAdd) {
+          _warehouses.add(row);
+        } else {
+          _warehouses[index!] = row;
+        }
+      });
+    }
+  }
+}
+
+// ===== Segmented tabs (unchanged) =================================
+class _SegmentedTabs extends StatelessWidget {
+  const _SegmentedTabs({required this.tabs});
+  final List<(IconData, String)> tabs;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceVariant.withOpacity(.5),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: TabBar(
+        isScrollable: true,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+        indicator: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        dividerColor: Colors.transparent,
+        tabs: [
+          for (final t in tabs)
+            Tab(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      width: 110,
-                      child: Text(e.k, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                    ),
+                    Icon(t.$1, size: 18),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(e.v.isEmpty ? '—' : e.v)),
+                    Text(t.$2, style: const TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
-              )),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Wrap(
-              spacing: 8,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ===== Warehouses table (unchanged) ===============================
+class _WhRow {
+  _WhRow(this.name, this.address, this.enabled);
+  String name;
+  String address;
+  bool enabled;
+}
+
+class _WarehousesTable extends StatelessWidget {
+  const _WarehousesTable({
+    required this.rows,
+    required this.onToggle,
+    required this.onDelete,
+    required this.onEdit,
+  });
+
+  final List<_WhRow> rows;
+  final void Function(int index, bool value) onToggle;
+  final void Function(int index) onDelete;
+  final void Function(int index) onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = Theme.of(context).colorScheme.outlineVariant;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _tableHeader(context),
+        const SizedBox(height: 8),
+        for (var i = 0; i < rows.length; i++) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: border),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
               children: [
-                TextButton.icon(
-                  icon: const Icon(Icons.download_outlined),
-                  label: const Text('Load Saved'),
-                  onPressed: () {
-                    final sp = context.read<SettingsProvider>();
-                    _orgCtrl.text = sp.orgName;
-                    _ownerCtrl.text = sp.ownerName;
-                    _emailCtrl.text = sp.email;
-                    _phoneCtrl.text = sp.phone;
-                    _gstCtrl.text = sp.gst;
-                    _addressCtrl.text = sp.address;
-                    _cityCtrl.text = sp.city;
-                    _stateCtrl.text = sp.stateName;
-                    _pincodeCtrl.text = sp.pincode;
-                    setState(() => _dirty = false);
-                  },
+                Expanded(flex: 2, child: Text(rows[i].name)),
+                Expanded(flex: 4, child: Text(rows[i].address)),
+                SizedBox(
+                  width: 64,
+                  child: Switch.adaptive(value: rows[i].enabled, onChanged: (v) => onToggle(i, v)),
                 ),
-                TextButton.icon(
-                  icon: const Icon(Icons.copy_all_outlined),
-                  label: const Text('Copy JSON'),
-                  onPressed: () {
-                    final jsonText =
-                        '{'
-                        '"orgName":"${p.orgName}","ownerName":"${p.ownerName}","email":"${p.email}",'
-                        '"phone":"${p.phone}","gst":"${p.gst}","address":"${p.address}",'
-                        '"city":"${p.city}","state":"${p.stateName}","pincode":"${p.pincode}"'
-                        '}';
-                    Clipboard.setData(ClipboardData(text: jsonText));
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
-                  },
+                Row(
+                  children: [
+                    IconButton(tooltip: 'Edit', onPressed: () => onEdit(i), icon: const Icon(Icons.edit_outlined)),
+                    IconButton(tooltip: 'Delete', onPressed: () => onDelete(i), icon: const Icon(Icons.delete_outline)),
+                  ],
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+
+  Widget _tableHeader(BuildContext context) {
+    final grey = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Row(
+        children: [
+          Expanded(flex: 2, child: Text('Name', style: TextStyle(color: grey))),
+          Expanded(flex: 4, child: Text('Address', style: TextStyle(color: grey))),
+          SizedBox(width: 64, child: Text('Status', style: TextStyle(color: grey))),
+          const SizedBox(width: 96, child: Text('Actions')),
+        ],
+      ),
+    );
+  }
+}
+
+// ===== Common card shell (unchanged) ==============================
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({this.header, required this.child});
+  final _CardHeader? header;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            if (header != null) ...[
+              header!,
+              const SizedBox(height: 12),
+            ],
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CardHeader extends StatelessWidget {
+  const _CardHeader({required this.title, this.trailing});
+  final String title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        const Spacer(),
+        if (trailing != null) trailing!,
+      ],
+    );
+  }
+}
+
+// ===== Small items (unchanged) ===================================
+class _SwitchRow extends StatefulWidget {
+  const _SwitchRow(this.label, {super.key});
+  final String label;
+
+  @override
+  State<_SwitchRow> createState() => _SwitchRowState();
+}
+
+class _SwitchRowState extends State<_SwitchRow> {
+  bool v = true;
+  @override
+  Widget build(BuildContext context) {
+    final border = Theme.of(context).colorScheme.outlineVariant;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: Text(widget.label)),
+          Switch.adaptive(value: v, onChanged: (x) => setState(() => v = x)),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserRow extends StatelessWidget {
+  const _UserRow(this.name, this.role, {super.key});
+  final String name;
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = Theme.of(context).colorScheme.outlineVariant;
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(radius: 16, backgroundColor: scheme.surfaceVariant, child: Text(name.isNotEmpty ? name[0] : '?')),
+          const SizedBox(width: 10),
+          Expanded(child: Text(name)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(color: scheme.surfaceVariant.withOpacity(.6), borderRadius: BorderRadius.circular(999)),
+            child: Text(role, style: const TextStyle(fontSize: 12)),
           ),
         ],
       ),
     );
   }
+}
 
-  void _resetControllers() {
-    _orgCtrl.clear();
-    _ownerCtrl.clear();
-    _emailCtrl.clear();
-    _phoneCtrl.clear();
-    _gstCtrl.clear();
-    _addressCtrl.clear();
-    _cityCtrl.clear();
-    _stateCtrl.clear();
-    _pincodeCtrl.clear();
+// ===== Helper for onboarding locations ============================
+class _LocationCtrls {
+  final name = TextEditingController();
+  final address = TextEditingController();
+  final city = TextEditingController();
+  final state = TextEditingController();
+  final pincode = TextEditingController();
+  void dispose() {
+    name.dispose();
+    address.dispose();
+    city.dispose();
+    state.dispose();
+    pincode.dispose();
   }
-
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
-    if (parts.isEmpty) return 'WM';
-    if (parts.length == 1) return parts.first.characters.take(2).toString().toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  Widget _tipBanner({required IconData icon, required String text}) {
-  final theme = Theme.of(context);
-  return Container(
-    margin: const EdgeInsets.only(top: 8),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(12),
-      color: theme.colorScheme.primaryContainer.withOpacity(0.18),
-      border: Border.all(color: theme.colorScheme.primary.withOpacity(0.25)),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: theme.colorScheme.primary),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            text,
-            style: theme.textTheme.bodyMedium,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-}
-
-class _KV {
-  final String k;
-  final String v;
-  _KV(this.k, this.v);
-}
-
-class _Dot extends StatelessWidget {
-  final Color color;
-  const _Dot({super.key, required this.color});
-  @override
-  Widget build(BuildContext context) =>
-      Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
 }

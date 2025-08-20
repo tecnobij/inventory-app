@@ -1,8 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
-
 class SettingsProvider extends ChangeNotifier {
   // Stored values
   String orgName = '';
@@ -91,11 +89,19 @@ class SettingsProvider extends ChangeNotifier {
     this.stateName = stateName;
     this.pincode = pincode;
 
-    // Mark onboarding done once details are complete
+    // Auto-mark onboarded once details are complete
     if (isComplete) {
       onboarded = true;
       await sp.setBool(_kOnboarded, true);
     }
+    notifyListeners();
+  }
+
+  /// Explicitly set onboarding flag (used by "Create Organization" in the first-run screen).
+  Future<void> setOnboarded(bool value) async {
+    final sp = await SharedPreferences.getInstance();
+    onboarded = value;
+    await sp.setBool(_kOnboarded, value);
     notifyListeners();
   }
 
