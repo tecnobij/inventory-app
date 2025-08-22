@@ -11,70 +11,57 @@ final List<ActionItem> _all = const [
     label: 'Home',
     icon: Icons.dashboard_outlined,
     page: HomePage(),
-    color: Colors.blueAccent,
-  ),
-  ActionItem(
-    id: 'sales',
-    label: 'Sales',
-    icon: Icons.point_of_sale_outlined,
-    page: SalesPage(),
-    color: Colors.green,
-  ),
-  ActionItem(
-    id: 'purchase',
-    label: 'Purchase',
-    icon: Icons.shopping_cart_outlined,
-    page: PurchasePage(),
-    color: Colors.orange,
+   
   ),
   ActionItem(
     id: 'products',
-    label: 'Products',
+    label: 'Products & Stocks',
     icon: Icons.inventory_2_outlined,
     page: ProductPage(),
-    color: Colors.deepPurple,
+   
   ),
   ActionItem(
-    id: 'quotes',
+    id: 'sales',
+    label: 'Sales/Dispatch',
+    icon: Icons.local_shipping_outlined,
+    page: PurchasePage(),
+
+  ),
+  ActionItem(
+    id: 'quotations',
     label: 'Quotations',
-    icon: Icons.request_quote_outlined,
+    icon:Icons.description_outlined,
+    page: ProductPage(),
+   
+  ),
+  ActionItem(
+    id: 'party',
+    label: 'Party Management',
+    icon: Icons.groups_2_outlined,
     page: QuotationsPage(),
-    color: Colors.teal,
+   
+  ),
+  ActionItem(
+    id: 'payments',
+    label: 'Credit/Payments',
+    icon: Icons.credit_card,
+    page: ReportPage(),
+  
   ),
   ActionItem(
     id: 'reports',
     label: 'Reports',
-    icon: Icons.receipt_long_outlined,
-    page: ReportPage(),
-    color: Colors.pinkAccent,
-  ),
-  ActionItem(
-    id: 'finance',
-    label: 'Finance',
-    icon: Icons.account_balance_wallet_outlined,
+    icon: Icons.bar_chart_outlined,
     page: FinancePage(),
-    color: Colors.indigo,
+   
   ),
-  ActionItem(
-    id: 'customers',
-    label: 'Customers',
-    icon: Icons.people_outline,
-    page: CustomersPage(),
-    color: Colors.cyan,
-  ),
-  ActionItem(
-    id: 'vendors',
-    label: 'Vendors',
-    icon: Icons.store_mall_directory_outlined,
-    page: VendorsPage(),
-    color: Colors.redAccent,
-  ),
+
   ActionItem(
     id: 'settings',
     label: 'Settings',
     icon: Icons.settings_outlined,
     page: SettingPage(),
-    color: Colors.brown,
+
   ),
 ];
 

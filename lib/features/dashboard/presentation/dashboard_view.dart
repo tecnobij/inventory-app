@@ -382,7 +382,7 @@ class _CommandPaletteState extends State<_CommandPalette> {
                     runSpacing: 8,
                     children: widget.actionsCtrl.favorites.map((a) {
                       return InputChip(
-                        avatar: Icon(a.icon, color: a.color, size: 18),
+                        avatar: Icon(a.icon, size: 18),
                         label: Text(a.label),
                         onPressed: () => _openAction(a),
                         onDeleted: () {
@@ -457,8 +457,7 @@ class _AppTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final bg = item.color.withOpacity(0.10);
-    final border = item.color.withOpacity(0.30);
+  
 
     return InkWell(
       onTap: onOpen,
@@ -466,8 +465,8 @@ class _AppTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         decoration: BoxDecoration(
-          color: bg,
-          border: Border.all(color: border),
+        
+         
           borderRadius: BorderRadius.circular(14),
         ),
         padding: const EdgeInsets.all(12),
@@ -478,7 +477,7 @@ class _AppTile extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(item.icon, color: item.color, size: 28),
+                  Icon(item.icon, size: 28),
                   const SizedBox(height: 8),
                   Text(
                     item.label,
@@ -611,7 +610,7 @@ class _MetricCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(data.title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant)),
-                  const SizedBox(height: 6),
+                
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -625,21 +624,24 @@ class _MetricCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 6),
+            
                   if (data.badge != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: (data.badgeColor ?? Colors.red).withOpacity(.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: (data.badgeColor ?? Colors.red).withOpacity(.25)),
-                      ),
-                      child: Text(
-                        data.badge!,
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: data.badgeColor ?? Colors.red,
-                              fontWeight: FontWeight.w700,
-                            ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, ),
+                        decoration: BoxDecoration(
+                          color: (data.badgeColor ?? Colors.red).withOpacity(.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: (data.badgeColor ?? Colors.red).withOpacity(.25)),
+                        ),
+                        child: Text(
+                          data.badge!,
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: data.badgeColor ?? Colors.red,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
                       ),
                     )
                   else if (data.deltaText != null)
@@ -691,23 +693,41 @@ class _DeltaText extends StatelessWidget {
   }
 }
 
+// ----- CHARTS ROW -----
 class _ChartsRow extends StatelessWidget {
   const _ChartsRow();
+
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 1100;
-    final left = const _ChartCard(title: 'Stock Movement (30 days)', filterLabel: 'Last 30 days');
-    final right = const _ChartCard(
+
+    const left = _ChartCard(
+      title: 'Stock Movement (30 days)',
+      filterLabel: 'Last 30 days',
+      legends: [
+        _Legend(label: 'Stock In',  dotColor: Color(0xFF2E68FF)), // blue
+        _Legend(label: 'Stock Out', dotColor: Color(0xFFF04438)), // red
+      ],
+      placeholderTitle: 'Stock Movement Chart',
+      placeholderSub: 'Area chart placeholder',
+      placeholderIcon: Icons.trending_up,
+    );
+
+    const right = _ChartCard(
       title: 'Sales vs Purchase (MTD)',
       filterLabel: 'This Month',
       legends: [
-        _Legend(label: 'Sales', dotColor: Color(0xFF12B76A)),
-        _Legend(label: 'Purchase', dotColor: Color(0xFFFD853A)),
+        _Legend(label: 'Sales',    dotColor: Color(0xFF12B76A)), // green
+        _Legend(label: 'Purchase', dotColor: Color(0xFFFD853A)), // orange
       ],
+      placeholderTitle: 'Sales vs Purchase Chart',
+      placeholderSub: 'Bar chart placeholder',
+      placeholderIcon: Icons.trending_up,
     );
+
     return isWide
-        ? Row(children: [Expanded(child: left), const SizedBox(width: 16), Expanded(child: right)])
-        : Column(children: [left, const SizedBox(height: 16), right]);
+        ? Row(children: const [Expanded(child: left), SizedBox(width: 16), Expanded(child: right)])
+        : const Column(children: [left, SizedBox(height: 16), right]);
   }
 }
 
@@ -717,62 +737,65 @@ class _Legend {
   const _Legend({required this.label, required this.dotColor});
 }
 
+// ----- CHART CARD -----
 class _ChartCard extends StatelessWidget {
-  const _ChartCard({required this.title, required this.filterLabel, this.legends = const []});
+  const _ChartCard({
+    required this.title,
+    required this.filterLabel,
+    required this.legends,
+    required this.placeholderTitle,
+    required this.placeholderSub,
+    required this.placeholderIcon,
+  });
+
   final String title;
   final String filterLabel;
   final List<_Legend> legends;
+  final String placeholderTitle;
+  final String placeholderSub;
+  final IconData placeholderIcon;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+
     return _SectionCard(
       header: _CardHeader(
         title: title,
-        trailing: OutlinedButton.icon(
-          icon: const Icon(Icons.calendar_month_outlined, size: 18),
-          label: Text(filterLabel),
-          onPressed: () {},
-        ),
+        // pill exactly like screenshot (calendar + text + chevron)
+        trailing: _FilterPill(label: filterLabel),
       ),
       child: Column(
         children: [
           AspectRatio(
-            aspectRatio: 16 / 6.8,
-            child: Container(
-              decoration: BoxDecoration(
-                color: scheme.surfaceVariant.withOpacity(.5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.show_chart, size: 28, color: Colors.grey),
-                    const SizedBox(height: 6),
-                    Text(
-                      title.contains('Sales') ? 'Sales vs Purchase Chart' : 'Stock Movement Chart',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                    Text(
-                      title.contains('Sales') ? 'Bar chart placeholder' : 'Area chart placeholder',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
+            aspectRatio: 16 / 7.0,
+            child: _PlaceholderPanel(
+              icon: placeholderIcon,
+              title: placeholderTitle,
+              subtitle: placeholderSub,
             ),
           ),
           if (legends.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             Wrap(
-              spacing: 18,
+              alignment: WrapAlignment.center,
+              spacing: 28,
+              runSpacing: 8,
               children: legends
-                  .map((e) => Row(mainAxisSize: MainAxisSize.min, children: [
-                        _LegendDot(color: e.dotColor),
-                        const SizedBox(width: 6),
-                        Text(e.label),
-                      ]))
+                  .map((e) => Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _LegendDot(color: e.dotColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            e.label,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(color: scheme.onSurface),
+                          ),
+                        ],
+                      ))
                   .toList(),
             ),
           ],
@@ -781,15 +804,71 @@ class _ChartCard extends StatelessWidget {
     );
   }
 }
+// ----- PLACEHOLDER PANEL (big soft grey area) -----
+class _PlaceholderPanel extends StatelessWidget {
+  const _PlaceholderPanel({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceVariant.withOpacity(.35),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 36, color: scheme.onSurfaceVariant.withOpacity(.6)),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ----- LEGEND DOT -----
 class _LegendDot extends StatelessWidget {
   const _LegendDot({required this.color});
   final Color color;
-  @override
-  Widget build(BuildContext context) =>
-      Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
-}
 
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
 class _RecentActivityCard extends StatelessWidget {
   const _RecentActivityCard();
 
@@ -808,6 +887,34 @@ class _RecentActivityCard extends StatelessWidget {
           _ActivityItem(kind: 'OUT', title: 'Mouse Pad', sku: 'SKU-089', qty: 15, time: '5 hours ago'),
           _ActivityItem(kind: 'IN', title: 'Desk Lamp', sku: 'SKU-156', qty: 30, time: '6 hours ago'),
           _ActivityItem(kind: 'OUT', title: 'Phone Stand', sku: 'SKU-203', qty: 12, time: '7 hours ago'),
+        ],
+      ),
+    );
+  }
+}
+// ----- FILTER PILL (calendar chip with chevron) -----
+class _FilterPill extends StatelessWidget {
+  const _FilterPill({required this.label, this.onPressed});
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final grey = const Color(0xFFE5E7EB);
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: grey, width: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+      ),
+      onPressed: onPressed ?? () {},
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.calendar_today_outlined, size: 18),
+          SizedBox(width: 8),
+          // label text injected below via LayoutBuilder
         ],
       ),
     );

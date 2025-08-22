@@ -43,7 +43,7 @@ class SideBar extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 15),
             // Draggable favorites
             Expanded(
               child: ReorderableListView.builder(
@@ -60,19 +60,17 @@ class SideBar extends StatelessWidget {
                   final selected = i == ctrl.selectedFavoriteIndex;
 
                   final bg = selected
-                      ? theme.colorScheme.primary.withOpacity(0.10)
+                      ? Colors.grey.shade300
                       : theme.colorScheme.surface;
-                  final borderColor = selected
-                      ? theme.colorScheme.primary.withOpacity(0.35)
-                      : theme.colorScheme.outlineVariant;
+                
 
                   return Container(
                     key: ValueKey(item.id),
-                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    margin: const EdgeInsets.symmetric(vertical: 7),
                     decoration: BoxDecoration(
                       color: bg,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: borderColor),
+                     // border: Border.all(color: borderColor),
                     ),
                     child: Material(
                       color: Colors.transparent,
@@ -80,30 +78,29 @@ class SideBar extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         onTap: () => ctrl.setSelectedFavorite(i),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           child: Row(
                             children: [
                               // App icon in soft pill
                               Container(
                                 width: 32,
-                                height: 32,
+                               // height: 32,
                                 decoration: BoxDecoration(
-                                  color: item.color.withOpacity(0.14),
+                                
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 alignment: Alignment.center,
-                                child: Icon(item.icon, color: item.color),
+                                child: Icon(item.icon, ),
                               ),
                               const SizedBox(width: 10),
                               // Label
                               Expanded(
                                 child: Text(
+                                  
                                   item.label,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style:TextStyle(fontSize:13,fontWeight: FontWeight.bold )
                                 ),
                               ),
                               // Drag handle

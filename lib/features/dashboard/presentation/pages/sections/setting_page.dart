@@ -178,7 +178,20 @@ bool _resetCounters = false; // for the "Reset Numbering Counters" switch
       final re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
       return re.hasMatch(v!.trim()) ? null : 'Invalid email';
     }
+String? phone(String? v) {
+  if (req(v) != null) return 'Required';
+  final digits = v!.replaceAll(RegExp(r'\D'), '');
+  return (digits.length >= 7 && digits.length <= 13)
+      ? null
+      : 'Enter a valid phone number';
+}
 
+String? gstin(String? v) {
+  if (req(v) != null) return 'Required';
+  final s = v!.trim().toUpperCase();
+  final re = RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$');
+  return re.hasMatch(s) ? null : 'Invalid GSTIN';
+}
     InputDecoration _soft(String hint) => InputDecoration(
           hintText: hint,
           filled: true,
@@ -301,6 +314,7 @@ bool _resetCounters = false; // for the "Reset Numbering Counters" switch
                     _title('Phone'),
                     TextFormField(
                       controller: _phoneCtrl,
+                       validator: phone,
                       keyboardType: TextInputType.phone,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)],
                       decoration: _soft('+91 98765 43210'),
@@ -314,6 +328,7 @@ bool _resetCounters = false; // for the "Reset Numbering Counters" switch
                     _title('GSTIN'),
                     TextFormField(
                       controller: _gstCtrl,
+                       validator: gstin,
                       textCapitalization: TextCapitalization.characters,
                       decoration: _soft('22AAAAA0000A1Z5'),
                       onChanged: (_) => setState(() => _dirty = true),

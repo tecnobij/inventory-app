@@ -15,7 +15,7 @@ class DashboardController extends ChangeNotifier {
     NavItem(
       label: 'Sales',
       icon: Icons.point_of_sale_outlined,
-      page: SalesPage(),
+      page: ProductPage(),
     ),
     NavItem(
       label: 'Purchase',
