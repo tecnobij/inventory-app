@@ -1,8 +1,8 @@
-import 'package:bhago/features/dashboard/controller/theme_controller.dart';
+
 import 'package:bhago/features/dashboard/model/action_item.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 import '../controller/actions_controller.dart';
 import 'pages/manage_actions_page.dart';
 import 'widgets/side_bar.dart';
@@ -33,7 +33,7 @@ class DashboardView extends StatelessWidget {
   leading: useWide
       ? const Padding(
           padding: EdgeInsets.only(left: 8),
-          child: _LogoBadge(label: 'WarehouseOS'),
+          child: _LogoBadge(label: 'WarehouseOS',size: 32,),
         )
       : null,
   leadingWidth: useWide ? 220 : null,
@@ -43,7 +43,7 @@ class DashboardView extends StatelessWidget {
       ? null
       : const Padding(
           padding: EdgeInsets.only(left: 4),
-          child: _LogoBadge(label: 'WarehouseOS'),
+          child: _LogoBadge(label: 'WarehouseOS',size: 30,),
         ),
   titleSpacing: useWide ? 0 : 8,
   centerTitle: false,
@@ -85,10 +85,12 @@ class DashboardView extends StatelessWidget {
 
     final selected = ctrl.selectedAction;
     final content = (selected.id == 'home') ? const _DashboardBody() : selected.page;
+  // ⬅️ add this
 
     if (useWide) {
       // Desktop/Landscape — Sidebar + content
       return Scaffold(
+        floatingActionButton: const _HelpFab(),
         appBar: appBar,
         body: Row(
           children: [
@@ -188,10 +190,8 @@ class _SideMenuMobile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 18, 16, 8),
-            child: _LogoBadge(label: 'WarehouseOS'),
-          ),
+          
+        
           const SizedBox(height: 8),
           Expanded(
             child: ListView.separated(
@@ -228,8 +228,9 @@ class _MenuItem {
 }
 
 class _LogoBadge extends StatelessWidget {
-  const _LogoBadge({required this.label});
+  const _LogoBadge({required this.label, this.size = 32});
   final String label;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -238,38 +239,72 @@ class _LogoBadge extends StatelessWidget {
         Theme.of(context).colorScheme.onSurface;
 
     return Row(
-      mainAxisSize: MainAxisSize.min, // <-- critical
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          alignment: Alignment.center,
-          child: const Text(
-            'WO',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
+        // Square logo tile
+        SizedBox(
+          width: size,
+          height: size,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.black,                // keep your black tile
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              // Ensure the initials always fit (even with large text scaling)
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _initials(label),               // "WO" from WarehouseOS
+                  maxLines: 1,
+                  softWrap: false,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,                 // base size; scales down if needed
+                  ),
+                ),
+              ),
             ),
           ),
         ),
         const SizedBox(width: 10),
-        // No Flexible needed; text will ellipsis when constrained
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: appBarFg,
-              ),
+        // Product name (ellipsis on small widths)
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: appBarFg,
+            ),
+          ),
         ),
       ],
     );
   }
+
+String _initials(String name) {
+  final t = name.trim();
+  if (t.isEmpty) return 'WO';
+
+  // If there are spaces, use first letter of first two words.
+  final parts = t.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  // Single word: use first two UPPERCASE letters (CamelCase support).
+  final caps = RegExp(r'[A-Z]');
+  final capChars = t.split('').where((c) => caps.hasMatch(c)).toList();
+  if (capChars.length >= 2) return (capChars[0] + capChars[1]).toUpperCase();
+  if (capChars.length == 1) return (t[0] + capChars[0]).toUpperCase();
+
+  // Fallback: first two chars.
+  return t.substring(0, t.length >= 2 ? 2 : 1).toUpperCase();
+}
+
 }
 
 // ===================================================================
@@ -899,6 +934,83 @@ class _CardHeader extends StatelessWidget {
         const Spacer(),
         if (trailing != null) trailing!,
       ],
+    );
+  }
+}
+class _HelpFab extends StatelessWidget {
+  const _HelpFab();
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton(
+      heroTag: 'helpFab',
+      onPressed: () => _openMenu(context),
+      shape: const CircleBorder(),
+      backgroundColor: Colors.black,       // black circle like the mock
+      foregroundColor: Colors.white,       // white “?”
+      child: const Icon(Icons.question_mark_rounded),
+    );
+  }
+
+  Future<void> _openMenu(BuildContext context) async {
+    // Find this FAB’s on-screen rect to anchor the popup menu.
+    final button = context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final pos = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    final selected = await showMenu<String>(
+      context: context,
+      position: pos,
+      color: const Color(0xFF111217), // dark surface like screenshot
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      items: [
+        _item('help',        'Help Center'),
+        _item('yt',          'YouTube videos'),
+        _item('release',     'Release notes'),
+        _item('legal',       'Legal summary'),
+        _item('abuse',       'Report abuse'),
+        const PopupMenuDivider(),
+        _item('lang',        'Change language...'),
+      ],
+    );
+
+    if (selected == null) return;
+
+    // Hook up real navigation here. For now: snackbars as placeholders.
+    final msg = switch (selected) {
+      'help'    => 'Open Help Center',
+      'yt'      => 'Open YouTube videos',
+      'release' => 'Open Release notes',
+      'legal'   => 'Open Legal summary',
+      'abuse'   => 'Report abuse',
+      'lang'    => 'Change language',
+      _         => '',
+    };
+    if (msg.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
+  PopupMenuItem<String> _item(String value, String label) {
+    // White text on dark menu, generous hit target.
+    return PopupMenuItem<String>(
+      value: value,
+      height: 44,
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.1,
+        ),
+      ),
     );
   }
 }
