@@ -9,6 +9,19 @@ class ProductPage extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      appBar: AppBar(
+        
+        title:Align(
+          alignment: Alignment.bottomLeft,
+          child: Text(
+                    'Products & Stock',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w200),
+                  ),
+        ) ,
+      ),
       body: SafeArea(
         child: DefaultTabController(
           length: 3,
@@ -16,16 +29,7 @@ class ProductPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Page title row (kept simple so it embeds anywhere)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Text(
-                  'Products & Stock',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
+             
 
               // Segmented tabs
               Padding(

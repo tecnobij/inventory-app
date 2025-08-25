@@ -31,7 +31,7 @@ final List<ActionItem> _all = const [
     id: 'quotations',
     label: 'Quotations',
     icon:Icons.description_outlined,
-    page: ProductPage(),
+    page: QuotationsPage(),
    
   ),
   ActionItem(
