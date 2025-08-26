@@ -20,7 +20,7 @@ class DashboardController extends ChangeNotifier {
     NavItem(
       label: 'Purchase',
       icon: Icons.shopping_cart_outlined,
-      page: PurchasePage(),
+      page: PartyManagePage(),
     ),
     NavItem(
       label: 'Products',

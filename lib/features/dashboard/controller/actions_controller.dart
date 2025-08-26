@@ -24,7 +24,7 @@ final List<ActionItem> _all = const [
     id: 'sales',
     label: 'Sales/Dispatch',
     icon: Icons.local_shipping_outlined,
-    page: PurchasePage(),
+    page: PartyManagePage(),
 
   ),
   ActionItem(
@@ -38,7 +38,7 @@ final List<ActionItem> _all = const [
     id: 'party',
     label: 'Party Management',
     icon: Icons.groups_2_outlined,
-    page: QuotationsPage(),
+    page: PartyManagePage(),
    
   ),
   ActionItem(

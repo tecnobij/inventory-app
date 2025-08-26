@@ -1,6 +1,6 @@
 export 'sections/home_page.dart';
 export 'sections/product_and_stocks.dart';
-export 'sections/purchase_page.dart';
+export 'sections/party_management_page.dart';
 
 export 'sections/quotations_page.dart';
 export 'sections/report_page.dart';

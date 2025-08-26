@@ -6,7 +6,7 @@ class PageRegistry {
   static final List<PageSpec> all = [
     PageSpec(id:'home', label:'Home', icon:Icons.dashboard_outlined, route:'/home', builder: (_) => const HomePage()),
     PageSpec(id:'sales', label:'Sales', icon:Icons.point_of_sale_outlined, route:'/sales', builder: (_) => const ProductPage()),
-    PageSpec(id:'purchase', label:'Purchase', icon:Icons.shopping_cart_outlined, route:'/purchase', builder: (_) => const PurchasePage()),
+    PageSpec(id:'purchase', label:'Purchase', icon:Icons.shopping_cart_outlined, route:'/purchase', builder: (_) => const PartyManagePage()),
     PageSpec(id:'products', label:'Products', icon:Icons.inventory_2_outlined, route:'/products', builder: (_) => const ProductPage()),
     PageSpec(id:'quotes', label:'Quotations', icon:Icons.request_quote_outlined, route:'/quotes', builder: (_) => const QuotationsPage()),
     PageSpec(id:'reports', label:'Reports', icon:Icons.receipt_long_outlined, route:'/reports', builder: (_) => const ReportPage()),
