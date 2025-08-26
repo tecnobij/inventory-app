@@ -24,7 +24,7 @@ final List<ActionItem> _all = const [
     id: 'sales',
     label: 'Sales/Dispatch',
     icon: Icons.local_shipping_outlined,
-    page: PartyManagePage(),
+    page: SalesDispatchPage(),
 
   ),
   ActionItem(
@@ -45,14 +45,14 @@ final List<ActionItem> _all = const [
     id: 'payments',
     label: 'Credit/Payments',
     icon: Icons.credit_card,
-    page: ReportPage(),
+    page: CreditPaymentsPage(),
   
   ),
   ActionItem(
     id: 'reports',
     label: 'Reports',
     icon: Icons.bar_chart_outlined,
-    page: FinancePage(),
+    page: ReportPage(),
    
   ),
 
@@ -67,7 +67,7 @@ final List<ActionItem> _all = const [
 
 
   // Favorites (ids) and selected index within favorites
-  List<String> _favoriteIds = ['home', ];
+  List<String> _favoriteIds = ['home','products', 'sales'];
   int _selectedIndex = 0;
 
   // ===== Getters expected by your UI =====

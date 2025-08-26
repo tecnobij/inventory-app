@@ -1,5 +1,6 @@
 import 'package:bhago/features/dashboard/controller/settings_controller.dart';
 import 'package:bhago/features/dashboard/presentation/dashboard_view.dart';
+import 'package:bhago/features/dashboard/presentation/widgets/tab_componant.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -111,31 +112,28 @@ bool _resetCounters = false; // for the "Reset Numbering Counters" switch
 
     // ---------- RETURNING USER: Tabbed Settings ----------
     return Scaffold(
+       appBar: AppBar(
+        title: Align(
+          alignment: Alignment.bottomLeft,
+          child: Text(
+            'Settings',
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w200),
+          ),
+        ),
+      ),
       body: DefaultTabController(
         length: 4,
         child: Column(
           children: [
-            const SizedBox(height: 8),
-            // Header row with "Settings" and a session-only Skip (won’t show normally)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Text('Settings',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700)),
-                  const Spacer(),
-                  // (optional) quick exit if you ever reuse this screen as start
-                
-                ],
-              ),
-            ),
+         
+           
             const SizedBox(height: 8),
             Padding(
   padding: const EdgeInsets.symmetric(horizontal: 9),
-  child: _SegmentedTabs(
+  child: SegmentedTabs(
     tabs: const [
       (Icons.apartment_outlined, 'Organization'),
       (Icons.tag_outlined, 'Numbering'),

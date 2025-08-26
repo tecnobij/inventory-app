@@ -1,4 +1,3 @@
-
 import 'package:bhago/features/dashboard/model/action_item.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,11 +6,8 @@ import '../controller/actions_controller.dart';
 import 'pages/manage_actions_page.dart';
 import 'widgets/side_bar.dart';
 
-
 class DashboardView extends StatelessWidget {
   const DashboardView({super.key});
-
-
 
   bool _useWideLayout(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -25,70 +21,65 @@ class DashboardView extends StatelessWidget {
     final ctrl = context.watch<ActionsController>();
     final useWide = _useWideLayout(context);
 
-  final appBar = AppBar(
-  elevation: 0,
-  // If there is a Drawer (mobile), keep the hamburger in leading.
-  automaticallyImplyLeading: !useWide,
-  // Show the badge in leading on wide screens (dedicated width).
-  leading: useWide
-      ? const Padding(
-          padding: EdgeInsets.only(left: 8),
-          child: _LogoBadge(label: 'WarehouseOS',size: 32,),
-        )
-      : null,
-  leadingWidth: useWide ? 220 : null,
-
-  // On mobile, put the badge in the title (it will ellipsis as needed).
-  title: useWide
-      ? null
-      : const Padding(
-          padding: EdgeInsets.only(left: 4),
-          child: _LogoBadge(label: 'WarehouseOS',size: 30,),
-        ),
-  titleSpacing: useWide ? 0 : 8,
-  centerTitle: false,
-
-  actions: [
-  
-    const SizedBox(width: 4),
-    Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none)),
-          Positioned(
-            right: 6,
-            top: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: const Text('3', style: TextStyle(color: Colors.white, fontSize: 10)),
-            ),
-          ),
-        ],
-      ),
-    ),
-    Padding(
-      padding: const EdgeInsets.only(right: 12, left: 4),
-      child: CircleAvatar(
-        radius: 16,
-        backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-        child: const Text('AC', style: TextStyle(fontWeight: FontWeight.w700)),
-      ),
-    ),
-  ],
-);
-
     final selected = ctrl.selectedAction;
     final content = (selected.id == 'home') ? const _DashboardBody() : selected.page;
-  // ⬅️ add this
+
+    // AppBar title based on the selected action
+    final appBarTitle = selected.label;
+
+    final appBar = AppBar(
+      elevation: 0,
+      automaticallyImplyLeading: !useWide,
+      leading: useWide
+          ? const Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: _LogoBadge(label: 'WarehouseOS', size: 32),
+            )
+          : null,
+      leadingWidth: useWide ? 220 : null,
+      title: Text(appBarTitle,  style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w200),),
+      titleSpacing: useWide ? 0 : 8,
+      centerTitle: false,
+      actions: [
+        const SizedBox(width: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none)),
+              Positioned(
+                right: 6,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text('3', style: TextStyle(color: Colors.white, fontSize: 10)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(right: 12, left: 4),
+          child: CircleAvatar(
+            radius: 16,
+            backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+            child: const Text('AC', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ),
+        
+      ],
+      // Dynamically set the title here
+    );
 
     if (useWide) {
-      // Desktop/Landscape — Sidebar + content
       return Scaffold(
         floatingActionButton: const _HelpFab(),
         appBar: appBar,
@@ -143,55 +134,45 @@ class DashboardView extends StatelessWidget {
         ),
       );
     } else {
-      // Mobile/Portrait
       return Scaffold(
         appBar: appBar,
         drawer: Drawer(child: _SideMenuMobile()),
         body: content,
         bottomNavigationBar: NavigationBar(
-          selectedIndex: 0,
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Dashboard'),
-            NavigationDestination(icon: Icon(Icons.inventory_2_outlined), label: 'Stock'),
-            NavigationDestination(icon: Icon(Icons.shopping_cart_outlined), label: 'Orders'),
-            NavigationDestination(icon: Icon(Icons.insights_outlined), label: 'Reports'),
-            NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
-          ],
+          selectedIndex: context.watch<ActionsController>().selectedFavoriteIndex,
+          destinations: _buildNavigationDestinations(context),
           onDestinationSelected: (i) {
-            
-            // keep dashboard content for now; wire other tabs to your ActionsController if needed
+            context.read<ActionsController>().setSelectedFavorite(i);
           },
         ),
       );
     }
   }
 
+  List<NavigationDestination> _buildNavigationDestinations(BuildContext context) {
+    final actionsCtrl = context.watch<ActionsController>();
+    final favorites = actionsCtrl.favorites;
+
+    return favorites.map((action) {
+      return NavigationDestination(
+        icon: Icon(action.icon),
+        selectedIcon: Icon(action.icon),
+        label: action.label,
+      );
+    }).toList();
+  }
 }
 
-// ===================================================================
-// Mobile drawer (simple list matching the mock)
-// ===================================================================
 class _SideMenuMobile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final items = const [
-      _MenuItem(Icons.dashboard_customize_outlined, 'Dashboard'),
-      _MenuItem(Icons.inventory_2_outlined, 'Products & Stock'),
-      _MenuItem(Icons.shopping_cart_checkout_outlined, 'Purchase Orders'),
-      _MenuItem(Icons.local_shipping_outlined, 'Sales/Dispatch'),
-      _MenuItem(Icons.description_outlined, 'Quotations'),
-      _MenuItem(Icons.groups_2_outlined, 'Party Management'),
-      _MenuItem(Icons.account_balance_wallet_outlined, 'Credit/Payments'),
-      _MenuItem(Icons.bar_chart_outlined, 'Reports'),
-      _MenuItem(Icons.settings_outlined, 'Settings'),
-    ];
+    final actionsController = context.watch<ActionsController>();
+    final items = actionsController.favorites;
 
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          
-        
           const SizedBox(height: 8),
           Expanded(
             child: ListView.separated(
@@ -203,7 +184,18 @@ class _SideMenuMobile extends StatelessWidget {
                 return ListTile(
                   leading: Icon(it.icon),
                   title: Text(it.label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    if (i==0) {
+                         Navigator.pop(context);
+                    }else{
+                       Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => it.page),
+                    );
+                    }
+                   
+                  },
                 );
               },
             ),
@@ -221,12 +213,6 @@ class _SideMenuMobile extends StatelessWidget {
   }
 }
 
-class _MenuItem {
-  final IconData icon;
-  final String label;
-  const _MenuItem(this.icon, this.label);
-}
-
 class _LogoBadge extends StatelessWidget {
   const _LogoBadge({required this.label, this.size = 32});
   final String label;
@@ -241,27 +227,25 @@ class _LogoBadge extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Square logo tile
         SizedBox(
           width: size,
           height: size,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.black,                // keep your black tile
+              color: Colors.black,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
-              // Ensure the initials always fit (even with large text scaling)
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  _initials(label),               // "WO" from WarehouseOS
+                  _initials(label),
                   maxLines: 1,
                   softWrap: false,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 16,                 // base size; scales down if needed
+                    fontSize: 16,
                   ),
                 ),
               ),
@@ -269,7 +253,6 @@ class _LogoBadge extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        // Product name (ellipsis on small widths)
         Flexible(
           child: Text(
             label,
@@ -285,161 +268,24 @@ class _LogoBadge extends StatelessWidget {
     );
   }
 
-String _initials(String name) {
-  final t = name.trim();
-  if (t.isEmpty) return 'WO';
+  String _initials(String name) {
+    final t = name.trim();
+    if (t.isEmpty) return 'WO';
 
-  // If there are spaces, use first letter of first two words.
-  final parts = t.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-
-  // Single word: use first two UPPERCASE letters (CamelCase support).
-  final caps = RegExp(r'[A-Z]');
-  final capChars = t.split('').where((c) => caps.hasMatch(c)).toList();
-  if (capChars.length >= 2) return (capChars[0] + capChars[1]).toUpperCase();
-  if (capChars.length == 1) return (t[0] + capChars[0]).toUpperCase();
-
-  // Fallback: first two chars.
-  return t.substring(0, t.length >= 2 ? 2 : 1).toUpperCase();
-}
-
-}
-
-// ===================================================================
-// Command palette (unchanged from your version)
-// ===================================================================
-class _CommandPalette extends StatefulWidget {
-  const _CommandPalette({required this.actionsCtrl});
-  final ActionsController actionsCtrl;
-
-  @override
-  State<_CommandPalette> createState() => _CommandPaletteState();
-}
-
-class _CommandPaletteState extends State<_CommandPalette> {
-  final _queryCtrl = TextEditingController();
-  late List<ActionItem> _all;
-  String _q = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _all = widget.actionsCtrl.allActions;
-    _queryCtrl.addListener(() {
-      setState(() => _q = _queryCtrl.text.trim().toLowerCase());
-    });
-  }
-
-  @override
-  void dispose() {
-    _queryCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final favIds = widget.actionsCtrl.favorites.map((e) => e.id).toSet();
-
-    List<ActionItem> filtered = _all.where((a) {
-      if (_q.isEmpty) return true;
-      return a.label.toLowerCase().contains(_q) || a.id.toLowerCase().contains(_q);
-    }).toList();
-
-    filtered.sort((a, b) {
-      if (a.id == 'home') return 1;
-      if (b.id == 'home') return -1;
-      if (_q.isEmpty) {
-        final af = favIds.contains(a.id);
-        final bf = favIds.contains(b.id);
-        if (af != bf) return af ? -1 : 1;
-      }
-      return a.label.compareTo(b.label);
-    });
-
-    int crossAxisCount = 4;
-    final w = MediaQuery.of(context).size.width;
-    if (w < 380) crossAxisCount = 2;
-    else if (w < 520) crossAxisCount = 3;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text("Apps")),
-      body: Material(
-        color: Theme.of(context).colorScheme.surface,
-        elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              if (_q.isEmpty && favIds.isNotEmpty)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: widget.actionsCtrl.favorites.map((a) {
-                      return InputChip(
-                        avatar: Icon(a.icon, size: 18),
-                        label: Text(a.label),
-                        onPressed: () => _openAction(a),
-                        onDeleted: () {
-                          widget.actionsCtrl.removeFavorite(a.id);
-                          setState(() {});
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ),
-              if (_q.isEmpty && favIds.isNotEmpty) const SizedBox(height: 8),
-              Expanded(
-                child: GridView.builder(
-                  padding: const EdgeInsets.only(top: 4),
-                  itemCount: filtered.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 1.05,
-                  ),
-                  itemBuilder: (context, i) {
-                    final a = filtered[i];
-                    final isFav = favIds.contains(a.id);
-                    return _AppTile(
-                      item: a,
-                      isFavorite: isFav,
-                      onOpen: () => _openAction(a),
-                      onToggleFavorite: () {
-                        if (isFav) {
-                          widget.actionsCtrl.removeFavorite(a.id);
-                        } else {
-                          widget.actionsCtrl.addFavorite(a.id);
-                        }
-                        setState(() {});
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openAction(ActionItem a) {
-    final favIndex = widget.actionsCtrl.favorites.indexWhere((f) => f.id == a.id);
-    Navigator.of(context).pop();
-    if (favIndex >= 0) {
-      widget.actionsCtrl.setSelectedFavorite(favIndex);
-    } else {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => a.page));
+    final parts = t.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
     }
+
+    final caps = RegExp(r'[A-Z]');
+    final capChars = t.split('').where((c) => caps.hasMatch(c)).toList();
+    if (capChars.length >= 2) return (capChars[0] + capChars[1]).toUpperCase();
+    if (capChars.length == 1) return (t[0] + capChars[0]).toUpperCase();
+
+    return t.substring(0, t.length >= 2 ? 2 : 1).toUpperCase();
   }
 }
+
 
 class _AppTile extends StatelessWidget {
   const _AppTile({

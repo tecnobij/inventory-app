@@ -9,9 +9,9 @@ class PageRegistry {
     PageSpec(id:'purchase', label:'Purchase', icon:Icons.shopping_cart_outlined, route:'/purchase', builder: (_) => const PartyManagePage()),
     PageSpec(id:'products', label:'Products', icon:Icons.inventory_2_outlined, route:'/products', builder: (_) => const ProductPage()),
     PageSpec(id:'quotes', label:'Quotations', icon:Icons.request_quote_outlined, route:'/quotes', builder: (_) => const QuotationsPage()),
-    PageSpec(id:'reports', label:'Reports', icon:Icons.receipt_long_outlined, route:'/reports', builder: (_) => const ReportPage()),
-    PageSpec(id:'finance', label:'Finance', icon:Icons.account_balance_wallet_outlined, route:'/finance', builder: (_) => const FinancePage()),
-    PageSpec(id:'customers', label:'Customers', icon:Icons.people_outline, route:'/customers', builder: (_) => const CustomersPage()),
+    PageSpec(id:'reports', label:'Reports', icon:Icons.receipt_long_outlined, route:'/reports', builder: (_) => const CreditPaymentsPage()),
+    PageSpec(id:'finance', label:'Finance', icon:Icons.account_balance_wallet_outlined, route:'/finance', builder: (_) => const ReportPage()),
+    PageSpec(id:'customers', label:'Customers', icon:Icons.people_outline, route:'/customers', builder: (_) => const SalesDispatchPage()),
     PageSpec(id:'vendors', label:'Vendors', icon:Icons.store_mall_directory_outlined, route:'/vendors', builder: (_) => const VendorsPage()),
     PageSpec(id:'settings', label:'Settings', icon:Icons.settings_outlined, route:'/settings', builder: (_) => const SettingPage()),
   ];

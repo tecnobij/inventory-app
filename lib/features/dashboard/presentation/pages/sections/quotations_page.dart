@@ -1,3 +1,4 @@
+import 'package:bhago/features/dashboard/presentation/widgets/tab_componant.dart';
 import 'package:flutter/material.dart';
 
 class QuotationsPage extends StatefulWidget {
@@ -8,374 +9,435 @@ class QuotationsPage extends StatefulWidget {
 }
 
 class _QuotationsPageState extends State<QuotationsPage> {
-  int selectedTab = 0; // 0 = List, 1 = Create Quote
+  final _searchCtrl = TextEditingController();
+
+  final _rows = <_QuoteRow>[
+    _QuoteRow(
+      no: 'QU0–001',
+      customer: 'ABC Technologies',
+      date: DateTime(2024, 12, 18),
+      validTill: DateTime(2025, 1, 18),
+      status: _QuoteStatus.open,
+      amount: 28500,
+    ),
+    _QuoteRow(
+      no: 'QU0–002',
+      customer: 'XYZ Solutions',
+      date: DateTime(2024, 12, 15),
+      validTill: DateTime(2025, 1, 15),
+      status: _QuoteStatus.accepted,
+      amount: 45750,
+    ),
+  ];
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final wide = MediaQuery.of(context).size.width >= 900;
 
- return Scaffold(
-  
+    return Scaffold(
+      // appBar: AppBar(
+      //   title: Align(
+      //     alignment: Alignment.bottomLeft,
+      //     child: Text(
+      //       'Quotations',
+      //       style: Theme.of(context)
+      //           .textTheme
+      //           .titleLarge
+      //           ?.copyWith(fontWeight: FontWeight.w200),
+      //     ),
+      //   ),
+      // ),
+
+      // ✅ Provide a TabController for both TabBar (inside SegmentedTabs)
+      // and TabBarView below.
       body: DefaultTabController(
         length: 2,
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
-            // Header row with "Settings" and a session-only Skip (won’t show normally)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Text('Quotations',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700)),
-                  const Spacer(),
-                  // (optional) quick exit if you ever reuse this screen as start
-                
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            _SegmentedTabs(
-              
-              tabs:  [
-                (Icons.apartment_outlined, 'List'),
-                (Icons.tag_outlined, 'Create Quote'),
-             
-              ],
-            ),
-
-            const SizedBox(height: 8),
-            Expanded(
-              child: TabBarView(
-
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                _buildQuotationList(context)  ,   // Organization tab (your existing form)
-               _buildEmptyState()
-                
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-
-  /// ---------------- Quotation List ----------------
-  Widget _buildQuotationList(BuildContext context) {
-    final rows = [
-      {
-        "quoteNo": "QU0-001",
-        "customer": "ABC Technologies",
-        "date": "2024-12-18",
-        "validTill": "2025-01-18",
-        "status": "Open",
-        "amount": "₹28,500",
-        "canConvert": false,
-      },
-      {
-        "quoteNo": "QU0-002",
-        "customer": "XYZ Solutions",
-        "date": "2024-12-15",
-        "validTill": "2025-01-15",
-        "status": "Accepted",
-        "amount": "₹45,750",
-        "canConvert": true,
-      }
-    ];
-
-    return Column(
-      children: [
-        _buildSearchFilter(),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth > 750) {
-                // ---------- Desktop / Web ----------
-                return SingleChildScrollView(
-                  child: DataTable(
-                    headingRowColor: MaterialStateProperty.all(Colors.white),
-                    dividerThickness: 0.5,
-                    columns: const [
-                      DataColumn(
-                          label: Text("Quote No",
-                              style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(
-                          label: Text("Customer",
-                              style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(
-                          label: Text("Date",
-                              style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(
-                          label: Text("Valid Till",
-                              style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(
-                          label: Text("Status",
-                              style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(
-                          label: Text("Amount",
-                              style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(
-                          label: Text("Actions",
-                              style: TextStyle(fontWeight: FontWeight.bold))),
-                    ],
-                    rows: rows.map((row) {
-                      return DataRow(cells: [
-                        DataCell(Text(row["quoteNo"].toString())),
-                        DataCell(Text(row["customer"].toString())),
-                        DataCell(Text(row["date"].toString())),
-                        DataCell(Text(row["validTill"].toString())),
-                        DataCell(_buildStatus(row["status"].toString())),
-                        DataCell(Text(row["amount"].toString())),
-                        DataCell(Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove_red_eye, size: 20),
-                              onPressed: () {},
-                            ),
-                            if (row["canConvert"] == true)
-                              OutlinedButton.icon(
-                                onPressed: () {},
-                                icon: const Icon(Icons.description, size: 16),
-                                label: const Text("Convert to SO"),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        )),
-                      ]);
-                    }).toList(),
-                  ),
-                );
-              } else {
-                // ---------- Mobile ----------
-                return ListView.builder(
-                  itemCount: rows.length,
-                  itemBuilder: (context, index) {
-                    final row = rows[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(row["quoteNo"].toString(),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16)),
-                            const SizedBox(height: 6),
-                            Text("Customer: ${row["customer"]}"),
-                            Text("Date: ${row["date"]}"),
-                            Text("Valid Till: ${row["validTill"]}"),
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                _buildStatus(row["status"].toString()),
-                                Text(row["amount"].toString(),
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                            const Divider(height: 20),
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.remove_red_eye,
-                                      size: 20),
-                                  onPressed: () {},
-                                ),
-                                if (row["canConvert"] == true)
-                                  OutlinedButton.icon(
-                                    onPressed: () {},
-                                    icon: const Icon(Icons.description,
-                                        size: 16),
-                                    label: const Text("Convert"),
-                                  ),
-                              ],
-                            )
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSearchFilter() {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
+        child: SafeArea(
+          child: Column(
+           crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: "Search Quote Number...",
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+          const SizedBox(height: 16),
+
+              // Segmented header (uses DefaultTabController above)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SegmentedTabs(
+                  tabs: const [
+                    (Icons.widgets_outlined, 'List'),
+                    (Icons.notifications_none_outlined, 'Create Quote'),
+                  ],
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.filter_list),
-            label: const Text("Filters"),
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+
+              const SizedBox(height: 12),
+
+              // ✅ TabBarView must be constrained; keep it in Expanded
+              Expanded(
+                child: TabBarView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    // ---- List tab ----
+                    ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      children: [
+                        // Search + Filters row
+                        Wrap(
+                          runSpacing: 8,
+                          spacing: 12,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            _searchField(
+                              context,
+                              controller: _searchCtrl,
+                              hint: 'Search Quote Number…',
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Filters coming soon')),
+                                );
+                              },
+                              icon: const Icon(Icons.tune),
+                              label: const Text('Filters'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Table/Card container
+                        Container(
+                          decoration: BoxDecoration(
+                            color: scheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: scheme.outlineVariant),
+                          ),
+                          child: wide
+                              ? _TableWide(rows: _rows)
+                              : _CardsNarrow(rows: _rows),
+                        ),
+                      ],
+                    ),
+
+                    // ---- Create Quote tab (placeholder) ----
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.description_outlined,
+                              size: 56, color: scheme.onSurfaceVariant),
+                          const SizedBox(height: 12),
+                          Text('Create Quote',
+                              style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Quote builder UI goes here.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatus(String status) {
-    if (status == "Open") {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(20),
+  // Search (pill)
+  Widget _searchField(BuildContext context,
+      {required TextEditingController controller, required String hint}) {
+    final scheme = Theme.of(context).colorScheme;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 260, maxWidth: 440),
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Icons.search),
+          hintText: hint,
+          filled: true,
+          fillColor: scheme.surfaceVariant.withOpacity(.45),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
         ),
-        child: const Text("Open",
-            style: TextStyle(color: Colors.white, fontSize: 12)),
-      );
-    } else {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Text("Accepted",
-            style: TextStyle(color: Colors.black, fontSize: 12)),
-      );
-    }
-  }
-
-  /// ---------------- Empty State ----------------
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.add, size: 60, color: Colors.grey),
-          const SizedBox(height: 12),
-          const Text(
-            "Create New Quotation",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            "Similar to Create SO form with Quote-specific fields",
-            style: TextStyle(color: Colors.black54),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text("Start Creating Quote"),
-          ),
-        ],
       ),
     );
   }
 }
-class _SegmentedTabs extends StatelessWidget {
-  const _SegmentedTabs({required this.tabs});
-  final List<(IconData, String)> tabs;
+
+/* ============================ Wide table ============================ */
+
+class _TableWide extends StatelessWidget {
+  const _TableWide({required this.rows});
+  final List<_QuoteRow> rows;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceVariant.withOpacity(.45),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(3.0),
-        child: TabBar(
-          isScrollable: true,
-          tabAlignment: TabAlignment.start, // ← LEFT ALIGN TABS
-          dividerColor: Colors.transparent,
-          indicator: BoxDecoration(
-            color: scheme.surface,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
+    Widget headCell(String t,
+            {int flex = 1, TextAlign align = TextAlign.left}) =>
+        Expanded(
+          flex: flex,
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Text(t,
+                textAlign: align,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: scheme.onSurfaceVariant)),
+          ),
+        );
+
+    Widget divider() =>
+        Divider(height: 1, thickness: 1, color: scheme.outlineVariant);
+
+    return Column(
+      children: [
+        // Header row
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(
+            children: [
+              headCell('Quote No', flex: 2),
+              headCell('Customer', flex: 3),
+              headCell('Date', flex: 2),
+              headCell('Valid Till', flex: 2),
+              headCell('Status', flex: 2),
+              headCell('Amount', flex: 2),
+              headCell('Actions', flex: 2),
             ],
           ),
-          indicatorSize: TabBarIndicatorSize.tab,
-          labelPadding: const EdgeInsets.symmetric(horizontal: 18),
-          labelColor: scheme.onSurface,
-          unselectedLabelColor: scheme.onSurface,
-          overlayColor: MaterialStateProperty.all(Colors.transparent),
-          tabs: [
-            for (final t in tabs)
-              Padding(
-                padding:  EdgeInsets.symmetric(horizontal:10),
-                child: Tab(
-                  height: 40,
-                  
+        ),
+        divider(),
+        // Data rows
+        for (final r in rows) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              children: [
+                _cell(context, r.no, flex: 2),
+                _cell(context, r.customer, flex: 3),
+                _cell(context, _fmtDate(r.date), flex: 2),
+                _cell(context, _fmtDate(r.validTill), flex: 2),
+                const SizedBox(width: 8),
+                Expanded(flex: 2, child: _StatusPill(status: r.status)),
+                _cell(context, '₹${_comma(r.amount)}', flex: 2),
+                Expanded(
+                  flex: 2,
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(t.$1, size: 18),
-                      const SizedBox(width: 10),
-                      Text(t.$2, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      IconButton(
+                        tooltip: 'View',
+                        onPressed: () => _toast(context, 'Viewing ${r.no}'),
+                        icon: const Icon(Icons.remove_red_eye_outlined),
+                      ),
+                      const SizedBox(width: 6),
                     ],
                   ),
                 ),
+              ],
+            ),
+          ),
+          divider(),
+        ],
+        const SizedBox(height: 6),
+      ],
+    );
+  }
+
+  Widget _cell(BuildContext context, String t, {int flex = 1}) => Expanded(
+        flex: flex,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(t, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      );
+}
+
+/* ============================ Narrow cards ============================ */
+
+class _CardsNarrow extends StatelessWidget {
+  const _CardsNarrow({required this.rows});
+  final List<_QuoteRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
+      children: [
+        for (final r in rows) ...[
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: scheme.outlineVariant),
+                borderRadius: BorderRadius.circular(14),
               ),
-          ],
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top line: quote no + amount
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(r.no,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium),
+                      ),
+                      Text('₹${_comma(r.amount)}'),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(r.customer),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 6,
+                    children: [
+                      _meta('Date', _fmtDate(r.date)),
+                      _meta('Valid Till', _fmtDate(r.validTill)),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Status  '),
+                          _StatusPill(status: r.status)
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Column(
+                    children: [
+                      IconButton(
+                        tooltip: 'View',
+                        onPressed: () => _toast(context, 'Viewing ${r.no}'),
+                        icon: const Icon(Icons.remove_red_eye_outlined),
+                      ),
+                      const SizedBox(width: 6),
+                      OutlinedButton.icon(
+                        onPressed: () => _toast(context, 'Convert ${r.no} → SO'),
+                        icon: const Icon(Icons.description_outlined),
+                        label: const Text('Convert to SO'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _meta(String k, String v) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$k: ', style: const TextStyle(fontWeight: FontWeight.w700)),
+          Text(v),
+        ],
+      );
+}
+
+/* ============================ Status pill ============================ */
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
+  final _QuoteStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = status == _QuoteStatus.open;
+    final bg = dark ? const Color(0xFF0B0B14) : const Color(0xFFF2F4F7);
+    final fg = dark ? Colors.white : const Color(0xFF344054);
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration:
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+        child: Text(
+          status == _QuoteStatus.open ? 'Open' : 'Accepted',
+          style: TextStyle(color: fg, fontWeight: FontWeight.w700),
         ),
       ),
     );
   }
+}
+
+/* ============================ Model & helpers ============================ */
+
+enum _QuoteStatus { open, accepted }
+
+class _QuoteRow {
+  final String no;
+  final String customer;
+  final DateTime date;
+  final DateTime validTill;
+  final _QuoteStatus status;
+  final int amount;
+  _QuoteRow({
+    required this.no,
+    required this.customer,
+    required this.date,
+    required this.validTill,
+    required this.status,
+    required this.amount,
+  });
+}
+
+String _fmtDate(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+String _comma(num v) {
+  final s = v.toStringAsFixed(0);
+  final buf = StringBuffer();
+  for (int i = 0; i < s.length; i++) {
+    final fromRight = s.length - i - 1;
+    buf.write(s[i]);
+    if (fromRight > 0 && fromRight % 3 == 0) buf.write(',');
+  }
+  return buf.toString();
+}
+
+void _toast(BuildContext context, String msg) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 }

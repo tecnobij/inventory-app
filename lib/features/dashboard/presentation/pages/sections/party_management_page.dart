@@ -1,3 +1,4 @@
+import 'package:bhago/features/dashboard/presentation/widgets/tab_componant.dart';
 import 'package:flutter/material.dart';
 
 class PartyManagePage extends StatefulWidget {
@@ -14,30 +15,14 @@ class _PartyManagePageState extends State<PartyManagePage> {
   Widget build(BuildContext context) {
 
  return Scaffold(
-  
+
       body: DefaultTabController(
         length: 2,
         child: Column(
-          children: [
-            const SizedBox(height: 8),
-            // Header row with "Settings" and a session-only Skip (won’t show normally)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Text('Party Management',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700)),
-                  const Spacer(),
-                  // (optional) quick exit if you ever reuse this screen as start
-                
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            _SegmentedTabs(
+          crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+            SegmentedTabs(
               
               tabs:  [
                 (Icons.dashboard_customize_rounded, 'Customers'),
@@ -330,65 +315,6 @@ class _PartyManagePageState extends State<PartyManagePage> {
             child: const Text("Start Creating Quote"),
           ),
         ],
-      ),
-    );
-  }
-}
-class _SegmentedTabs extends StatelessWidget {
-  const _SegmentedTabs({required this.tabs});
-  final List<(IconData, String)> tabs;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceVariant.withOpacity(.45),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(3.0),
-        child: TabBar(
-          isScrollable: true,
-          tabAlignment: TabAlignment.start, // ← LEFT ALIGN TABS
-          dividerColor: Colors.transparent,
-          indicator: BoxDecoration(
-            color: scheme.surface,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          indicatorSize: TabBarIndicatorSize.tab,
-          labelPadding: const EdgeInsets.symmetric(horizontal: 18),
-          labelColor: scheme.onSurface,
-          unselectedLabelColor: scheme.onSurface,
-          overlayColor: MaterialStateProperty.all(Colors.transparent),
-          tabs: [
-            for (final t in tabs)
-              Padding(
-                padding:  EdgeInsets.symmetric(horizontal:10),
-                child: Tab(
-                  height: 40,
-                  
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(t.$1, size: 18),
-                      const SizedBox(width: 10),
-                      Text(t.$2, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }

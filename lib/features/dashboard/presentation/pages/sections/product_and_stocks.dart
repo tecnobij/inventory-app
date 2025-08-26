@@ -1,3 +1,4 @@
+import 'package:bhago/features/dashboard/presentation/widgets/tab_componant.dart';
 import 'package:flutter/material.dart';
 
 /// Entry widget you can push or place inside your dashboard body.
@@ -9,38 +10,24 @@ class ProductPage extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        
-        title:Align(
-          alignment: Alignment.bottomLeft,
-          child: Text(
-                    'Products & Stock',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w200),
-                  ),
-        ) ,
-      ),
+
       body: SafeArea(
         child: DefaultTabController(
           length: 3,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Page title row (kept simple so it embeds anywhere)
              
-
+   const SizedBox(height: 16),
               // Segmented tabs
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _SegmentedTabs(
-                  tabs: const [
-                    (Icons.widgets_outlined, 'Products'),
-                    (Icons.notifications_none_outlined, 'Alerts'),
-                    (Icons.swap_horiz_outlined, 'Stock Movements'),
-                  ],
-                ),
+                        SegmentedTabs(
+
+                tabs: const [
+                  (Icons.widgets_outlined, 'Products'),
+                  (Icons.notifications_none_outlined, 'Alerts'),
+                  (Icons.swap_horiz_outlined, 'Stock Movements'),
+                ],
               ),
               const SizedBox(height: 8),
 
@@ -786,76 +773,8 @@ class _StockMovementsTabState extends State<_StockMovementsTab> {
       );
 }
 
-/* -------------------------------------------------------------------------- */
-/*                               SHARED WIDGETS                                */
-/* -------------------------------------------------------------------------- */
 
-class _SegmentedTabs extends StatelessWidget {
-  const _SegmentedTabs({required this.tabs});
-  final List<(IconData, String)> tabs;
 
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final width = MediaQuery.of(context).size.width;
-
-    // Wider screens get more breathing room between tabs.
-    final horizontal = width >= 1100 ? 24.0 : width >= 800 ? 18.0 : 14.0;
-
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        decoration: BoxDecoration(
-          color: scheme.surfaceVariant.withOpacity(.45),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(3),
-          child: TabBar(
-            isScrollable: true,
-            labelPadding:
-                EdgeInsets.symmetric(horizontal: horizontal),
-            dividerColor: Colors.transparent,
-            indicator: BoxDecoration(
-              color: scheme.surface,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            indicatorSize: TabBarIndicatorSize.tab,
-            labelColor: scheme.onSurface,
-            unselectedLabelColor: scheme.onSurface,
-            overlayColor: MaterialStateProperty.all(Colors.transparent),
-            tabs: [
-              for (final t in tabs)
-                Tab(
-                  height: 40,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(t.$1, size: 18),
-                      const SizedBox(width: 10),
-                      Text(
-                        t.$2,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 16),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _SectionCard extends StatelessWidget {
   const _SectionCard({required this.child});
