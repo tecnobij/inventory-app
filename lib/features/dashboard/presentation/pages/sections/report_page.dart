@@ -15,34 +15,36 @@ class _ReportPageState extends State<ReportPage> {
     
     return Scaffold(
   
-      body: DefaultTabController(
-        length: 4,
-        child: Column(
-         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-            SegmentedTabs(
-              tabs: [
-                (Icons.shopping_cart_outlined, 'Purchase Report'),
-                (Icons.sell_outlined, 'Sales Report'),
-                (Icons.trending_up, 'P&L'),
-                (Icons.receipt_long, 'GST Summary'),
-              ],
-            
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: TabBarView(
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildPurchaseReport(isMobile),
-                  _buildSalesReport(isMobile),
-                  _buildPLReport(isMobile),
-                  _buildGSTSummary(isMobile),
+      body: SafeArea(
+        child: DefaultTabController(
+          length: 4,
+          child: Column(
+           crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+              SegmentedTabs(
+                tabs: [
+                  (Icons.shopping_cart_outlined, 'Purchase Report'),
+                  (Icons.sell_outlined, 'Sales Report'),
+                  (Icons.trending_up, 'P&L'),
+                  (Icons.receipt_long, 'GST Summary'),
                 ],
+              
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Expanded(
+                child: TabBarView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _buildPurchaseReport(isMobile),
+                    _buildSalesReport(isMobile),
+                    _buildPLReport(isMobile),
+                    _buildGSTSummary(isMobile),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

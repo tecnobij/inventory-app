@@ -112,18 +112,7 @@ bool _resetCounters = false; // for the "Reset Numbering Counters" switch
 
     // ---------- RETURNING USER: Tabbed Settings ----------
     return Scaffold(
-       appBar: AppBar(
-        title: Align(
-          alignment: Alignment.bottomLeft,
-          child: Text(
-            'Settings',
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w200),
-          ),
-        ),
-      ),
+      
       body: DefaultTabController(
         length: 4,
         child: Column(

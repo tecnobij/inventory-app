@@ -9,38 +9,48 @@ class CreditPaymentsPage extends StatefulWidget {
 }
 
 class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
-  // --------- Search state ----------
-  final TextEditingController _searchCtrl = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
+  // ---- Search state ----
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
   Timer? _debounce;
-  String _query = '';
+  String _q = '';
 
-  // Demo data (replace with your real search source)
-  final List<_SearchItem> _allItems = const [
-    _SearchItem(type: 'Payment Method', label: 'Cash'),
-    _SearchItem(type: 'Payment Method', label: 'Bank'),
-    _SearchItem(type: 'Payment Method', label: 'UPI'),
-    _SearchItem(type: 'Transaction', label: 'Payment for Invoice INV-001'),
-    _SearchItem(type: 'Transaction', label: 'Payment for PO-123'),
+  // ---- Demo data ----
+  final List<_Tx> _tx = [
+    _Tx(
+      date: DateTime(2024, 12, 19),
+      party: 'ABC Technologies',
+      type: _TxType.inward,
+      method: 'Bank',
+      reference: 'TXN123456',
+      amount: 28500,
+      notes: 'Payment for Invoice INV-001',
+    ),
+    _Tx(
+      date: DateTime(2024, 12, 18),
+      party: 'Tech Supplies Ltd',
+      type: _TxType.outward,
+      method: 'UPI',
+      reference: 'UPI789012',
+      amount: 45750,
+      notes: 'Payment for PO-123',
+    ),
   ];
 
-  List<_SearchItem> get _results {
-    final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return const [];
-    return _allItems
-        .where((e) => e.label.toLowerCase().contains(q) || e.type.toLowerCase().contains(q))
-        .take(8)
-        .toList();
-  }
+  // Payment method balances (top 3 cards)
+  final Map<String, int> _methodBalances = {
+    'Cash': 25000,
+    'Bank': 150000,
+    'UPI': 75000,
+  };
 
   @override
   void initState() {
     super.initState();
     _searchCtrl.addListener(() {
-      // Debounce to avoid rebuilding too often
       _debounce?.cancel();
       _debounce = Timer(const Duration(milliseconds: 180), () {
-        setState(() => _query = _searchCtrl.text);
+        setState(() => _q = _searchCtrl.text.trim().toLowerCase());
       });
     });
   }
@@ -53,12 +63,34 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
     super.dispose();
   }
 
-  // ---------- Responsive helpers ----------
-  int _cardColumns(BoxConstraints c) {
-    final w = c.maxWidth;
-    if (w >= 1200) return 4;
-    if (w >= 900) return 3;
-    if (w >= 600) return 2;
+  // ---- Computed totals (from transactions) ----
+  int get _totalIn => _tx.where((t) => t.type == _TxType.inward).fold(0, (s, t) => s + t.amount);
+  int get _totalOut => _tx.where((t) => t.type == _TxType.outward).fold(0, (s, t) => s + t.amount);
+  int get _net => _totalIn - _totalOut;
+
+  // ---- Filters ----
+  Iterable<_Tx> get _filteredTx {
+    if (_q.isEmpty) return _tx;
+    return _tx.where((t) {
+      final hay = [
+        _fmtDate(t.date),
+        t.party,
+        t.method,
+        t.reference,
+        t.notes,
+        (t.type == _TxType.inward ? 'in' : 'out'),
+      ].join(' ').toLowerCase();
+      return hay.contains(_q);
+    });
+  }
+
+  // ---- Responsive helpers ----
+  bool get _isWide => MediaQuery.of(context).size.width >= 1000;
+  bool get _useTable => MediaQuery.sizeOf(context).width >= 820; // table on ≥820px
+  int _methodCols(double w) {
+    if (w >= 1100) return 3;
+    if (w >= 700) return 3;
+    if (w >= 520) return 2;
     return 1;
   }
 
@@ -66,383 +98,612 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      children: [
-        // ======= Search + helper chips =======
-        _SearchBar(
-          controller: _searchCtrl,
-          focusNode: _searchFocus,
-          hintText: 'Search payment methods, transactions…',
-          onClear: () => setState(() {
-            _searchCtrl.clear();
-            _query = '';
-            _searchFocus.unfocus();
-          }),
-          trailing: [
-            Tooltip(
-              message: 'Filters',
-              child: IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.filter_alt_outlined),
-              ),
-            ),
-          ],
-        ),
-
-        // Live results dropdown (inline card)
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: _results.isEmpty
-              ? const SizedBox.shrink()
-              : Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _results.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, i) {
-                        final r = _results[i];
-                        return ListTile(
-                          dense: true,
-                          leading: CircleAvatar(
-                            radius: 16,
-                            backgroundColor: scheme.secondaryContainer,
-                            child: Icon(_iconForType(r.type), color: scheme.onSecondaryContainer, size: 18),
-                          ),
-                          title: Text(r.label, overflow: TextOverflow.ellipsis),
-                          subtitle: Text(r.type),
-                          onTap: () {
-                            // TODO: Navigate to detail page based on r.type/label
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Open ${r.type}: ${r.label}')),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // ======= Quick chips (shortcuts) =======
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+    return Scaffold(
+    
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
-            _QuickChip(icon: Icons.add_shopping_cart_outlined, label: 'New Payment', color: Colors.teal, onTap: () {}),
-            _QuickChip(icon: Icons.person_add_alt_1_outlined, label: 'Add Transaction', color: Colors.deepPurple, onTap: () {}),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
-        // ======= Stat cards (responsive grid) =======
-        LayoutBuilder(
-          builder: (context, c) {
-            final cols = _cardColumns(c);
-            return GridView(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            // ---------------- Payment Methods (Cash, Bank, UPI) ----------------
+            LayoutBuilder(builder: (context, c) {
+              final cols = _methodCols(c.maxWidth);
+              return GridView.count(
                 crossAxisCount: cols,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio: 2.3,
-              ),
-              children: const [
-                _StatCardDecorated(
-                  title: 'Today Payments',
-                  value: '₹ 0',
-                  delta: '+0%',
-                  icon: Icons.point_of_sale_outlined,
-                  gradient: [Color(0xFF00C853), Color(0xFFB9F6CA)],
-                ),
-                _StatCardDecorated(
-                  title: 'Pending Transactions',
-                  value: '0',
-                  delta: '0',
-                  icon: Icons.receipt_long_outlined,
-                  gradient: [Color(0xFF2979FF), Color(0xFF82B1FF)],
-                ),
-                _StatCardDecorated(
-                  title: 'Low Balance',
-                  value: '0',
-                  delta: '',
-                  icon: Icons.warning_amber_outlined,
-                  gradient: [Color(0xFFFF6D00), Color(0xFFFFD180)],
-                ),
-                _StatCardDecorated(
-                  title: 'Cash Balance',
-                  value: '₹ 0',
-                  delta: '',
-                  icon: Icons.account_balance_wallet_outlined,
-                  gradient: [Color(0xFFAA00FF), Color(0xFFE1BEE7)],
-                ),
-              ],
-            );
-          },
-        ),
-
-        const SizedBox(height: 24),
-
-        // ======= Welcome / tips =======
-        Card(
-          elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: scheme.tertiaryContainer,
-                  child: Icon(Icons.lightbulb_outline, color: scheme.onTertiaryContainer),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Welcome to the Payments Dashboard! Get started by adding payments and transactions.',
-                    style: Theme.of(context).textTheme.titleMedium,
+                childAspectRatio: 2.2,
+                children: [
+                  _PaymentMethodCard(
+                    label: 'Cash',
+                    amount: _methodBalances['Cash']!,
+                    icon: Icons.payments_rounded,
+                    iconBg: const Color(0xFFDFF7E6),
                   ),
-                ),
-                const SizedBox(width: 8),
-              ],
+                  _PaymentMethodCard(
+                    label: 'Bank',
+                    amount: _methodBalances['Bank']!,
+                    icon: Icons.credit_card_rounded,
+                    iconBg: const Color(0xFFDDE7FF),
+                  ),
+                  _PaymentMethodCard(
+                    label: 'UPI',
+                    amount: _methodBalances['UPI']!,
+                    icon: Icons.phone_iphone_rounded,
+                    iconBg: const Color(0xFFEFE3FF),
+                  ),
+                ],
+              );
+            }),
+
+            const SizedBox(height: 16),
+
+            // ---------------- Summary pills + Record button ----------------
+            _isWide
+                ? Row(
+                    children: [
+                      Expanded(child: _SummaryPill(label: 'Total In', value: _inr(_totalIn), color: const Color(0xFF12B76A))),
+                      const SizedBox(width: 16),
+                      Expanded(child: _SummaryPill(label: 'Total Out', value: _inr(_totalOut), color: const Color(0xFFF04438))),
+                      const SizedBox(width: 16),
+                      Expanded(child: _SummaryPill(label: 'Net Amount', value: _inr(_net), color: const Color(0xFFFB8C00))),
+                      const SizedBox(width: 16),
+                      _RecordPaymentButton(onPressed: _onRecordPayment),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _SummaryPill(label: 'Total In', value: _inr(_totalIn), color: const Color(0xFF12B76A)),
+                      const SizedBox(height: 12),
+                      _SummaryPill(label: 'Total Out', value: _inr(_totalOut), color: const Color(0xFFF04438)),
+                      const SizedBox(height: 12),
+                      _SummaryPill(label: 'Net Amount', value: _inr(_net), color: const Color(0xFFFB8C00)),
+                      const SizedBox(height: 12),
+                      _RecordPaymentButton(onPressed: _onRecordPayment),
+                    ],
+                  ),
+
+            const SizedBox(height: 20),
+
+            // ---------------- Recent Transactions (responsive) ----------------
+            Container(
+              decoration: BoxDecoration(
+                color: scheme.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+                    child: _RecentHeader(
+                      searchCtrl: _searchCtrl,
+                      onFilter: () => _snack('Filters coming soon'),
+                    ),
+                  ),
+                  const Divider(height: 1),
+
+                  if (_useTable) ...[
+                    _TableHeader(
+                      cols: const ['Date', 'Party', 'Type', 'Method', 'Reference', 'Amount', 'Notes'],
+                      flexes: const [2, 3, 2, 2, 2, 2, 3],
+                    ),
+                    const Divider(height: 1),
+                    for (final t in _filteredTx) ...[
+                      _TableRowWidget(tx: t),
+                      Divider(height: 1, color: scheme.outlineVariant),
+                    ],
+                    const SizedBox(height: 8),
+                  ] else ...[
+                    // Mobile: card list
+                    const SizedBox(height: 4),
+                    for (final t in _filteredTx) ...[
+                      _TxCard(tx: t),
+                      const Divider(height: 1),
+                    ],
+                    const SizedBox(height: 8),
+                  ],
+                ],
+              ),
             ),
-          ),
+
+            const SizedBox(height: 16),
+
+            // ---------------- Reconciliation Tip ----------------
+            _InfoCallout(
+              icon: Icons.info_outline_rounded,
+              color: const Color(0xFF1976D2),
+              text:
+                  'Reconciliation Tip: Regularly reconcile your payment methods with bank statements to ensure accuracy.',
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
-  IconData _iconForType(String type) {
-    switch (type.toLowerCase()) {
-      case 'payment method':
-        return Icons.payment_outlined;
-      case 'transaction':
-        return Icons.receipt_long_outlined;
-      default:
-        return Icons.search;
+  void _onRecordPayment() => _snack('Record Payment clicked');
+  void _snack(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+
+  // ---- Helpers ----
+  String _fmtDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _inr(int v) => '₹${_comma(v)}';
+  String _comma(int v) {
+    final s = v.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final fromRight = s.length - i - 1;
+      buf.write(s[i]);
+      if (fromRight > 0 && fromRight % 3 == 0) buf.write(',');
     }
+    return buf.toString();
   }
 }
 
-// ------------------------------------------------------------
-// Pretty search bar (Material 3-ish)
-// ------------------------------------------------------------
+/* ======================= Models ======================= */
+enum _TxType { inward, outward }
 
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({
-    required this.controller,
-    required this.focusNode,
-    required this.hintText,
-    this.trailing,
-    this.onClear,
+class _Tx {
+  final DateTime date;
+  final String party;
+  final _TxType type;
+  final String method;
+  final String reference;
+  final int amount; // positive int; sign/color handled by type
+  final String notes;
+
+  _Tx({
+    required this.date,
+    required this.party,
+    required this.type,
+    required this.method,
+    required this.reference,
+    required this.amount,
+    required this.notes,
+  });
+}
+
+/* ======================= Widgets ======================= */
+
+class _PaymentMethodCard extends StatelessWidget {
+  const _PaymentMethodCard({
+    required this.label,
+    required this.amount,
+    required this.icon,
+    required this.iconBg,
   });
 
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final String hintText;
-  final List<Widget>? trailing;
-  final VoidCallback? onClear;
+  final String label;
+  final int amount;
+  final IconData icon;
+  final Color iconBg;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceVariant.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          const SizedBox(width: 4),
-          Icon(Icons.search, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: hintText,
-                border: InputBorder.none,
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant)),
+                  const SizedBox(height: 6),
+                  Text('₹${_comma(amount)}',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                ],
               ),
-              onSubmitted: (_) => FocusScope.of(context).unfocus(),
             ),
-          ),
-          if ((controller.text).isNotEmpty)
-            IconButton(
-              tooltip: 'Clear',
-              onPressed: onClear,
-              icon: Icon(Icons.close_rounded, color: scheme.onSurfaceVariant),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: Colors.black87),
             ),
-          ...?trailing,
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _comma(int v) {
+    final s = v.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final fromRight = s.length - i - 1;
+      buf.write(s[i]);
+      if (fromRight > 0 && fromRight % 3 == 0) buf.write(',');
+    }
+    return buf.toString();
+  }
+}
+
+class _SummaryPill extends StatelessWidget {
+  const _SummaryPill({required this.label, required this.value, required this.color});
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(color: color, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: color, fontWeight: FontWeight.w800)),
         ],
       ),
     );
   }
 }
 
-// ------------------------------------------------------------
-// Quick action chip
-// ------------------------------------------------------------
-
-class _QuickChip extends StatelessWidget {
-  const _QuickChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback? onTap;
+class _RecordPaymentButton extends StatelessWidget {
+  const _RecordPaymentButton({required this.onPressed});
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(28),
-      onTap: onTap,
-      child: Ink(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          color: color.withOpacity(0.12),
-          border: Border.all(color: color.withOpacity(0.25)),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 220, minHeight: 56),
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-          ],
-        ),
+        onPressed: onPressed,
+        icon: const Icon(Icons.add),
+        label: const Text('Record Payment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       ),
     );
   }
 }
 
-// ------------------------------------------------------------
-// Decorated stat card with gradient, icon & small delta tag
-// ------------------------------------------------------------
-
-class _StatCardDecorated extends StatelessWidget {
-  const _StatCardDecorated({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.gradient,
-    this.delta,
-  });
-
-  final String title;
-  final String value;
-  final IconData icon;
-  final List<Color> gradient;
-  final String? delta;
+class _RecentHeader extends StatelessWidget {
+  const _RecentHeader({required this.searchCtrl, required this.onFilter});
+  final TextEditingController searchCtrl;
+  final VoidCallback onFilter;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final start = gradient.first;
-    final end = gradient.last;
+    final isNarrow = MediaQuery.of(context).size.width < 520;
 
-    return Card(
-      elevation: 1.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    final searchField = ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 220, maxWidth: 420),
       child: Container(
+        height: 40,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [end.withOpacity(0.06), start.withOpacity(0.10)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: start.withOpacity(0.25)),
+          color: scheme.surfaceVariant.withOpacity(.45),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: scheme.outlineVariant),
         ),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center, // ✅ Vertically center everything
           children: [
-            // Left circle icon
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(colors: [start, end]),
-              ),
-              padding: const EdgeInsets.all(10),
-              child: const Icon(Icons.bar_chart_rounded, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 12), 
-
-            // Middle text block
+            Icon(Icons.search, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
             Expanded(
-              child: DefaultTextStyle(
-                style: Theme.of(context).textTheme.bodyMedium!,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min, // ✅ Prevent extra vertical space
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          value,
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(width: 10),
-                        if (delta != null && delta!.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: scheme.secondaryContainer,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              delta!,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: scheme.onSecondaryContainer,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
+              child: TextField(
+                controller: searchCtrl,
+                decoration: const InputDecoration(
+                  hintText: 'Search transactions…',
+                  border: InputBorder.none,
+                  isCollapsed: true,
                 ),
               ),
-            ), 
-
-            // Right icon
-            Icon(icon, color: start.withOpacity(0.9), size: 26),
+            ),
           ],
+        ),
+      ),
+    );
+
+    final filterBtn = OutlinedButton.icon(
+      onPressed: onFilter,
+      icon: const Icon(Icons.tune, size: 18),
+      label: const Text('Filter'),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+
+    if (isNarrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Recent Transactions',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          searchField,
+          const SizedBox(height: 8),
+          Align(alignment: Alignment.centerLeft, child: filterBtn),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text('Recent Transactions',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        ),
+        searchField,
+        const SizedBox(width: 10),
+        filterBtn,
+      ],
+    );
+  }
+}
+
+class _TableHeader extends StatelessWidget {
+  const _TableHeader({required this.cols, required this.flexes});
+  final List<String> cols;
+  final List<int> flexes;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          for (int i = 0; i < cols.length; i++)
+            Expanded(
+              flex: flexes[i],
+              child: Text(
+                cols[i],
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TableRowWidget extends StatelessWidget {
+  const _TableRowWidget({required this.tx});
+  final _Tx tx;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final green = const Color(0xFF12B76A);
+    final red = const Color(0xFFF04438);
+
+    String amtText = '${tx.type == _TxType.inward ? '+' : '-'}${_inr(tx.amount)}';
+    final amtColor = tx.type == _TxType.inward ? green : red;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          _cell(_fmtDate(tx.date), flex: 2),
+          _cell(tx.party, flex: 3, bold: true),
+          Expanded(flex: 2, child: _TypeChip(type: tx.type)),
+          _cell(tx.method, flex: 2),
+          _cell(tx.reference, flex: 2),
+          Expanded(
+            flex: 2,
+            child: Text(amtText, style: TextStyle(fontWeight: FontWeight.w700, color: amtColor)),
+          ),
+          _cell(tx.notes, flex: 3),
+        ],
+      ),
+    );
+  }
+
+  Widget _cell(String text, {int flex = 1, bool bold = false}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w400),
+      ),
+    );
+  }
+
+  String _fmtDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _inr(int v) => '₹${_comma(v)}';
+  String _comma(int v) {
+    final s = v.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final fromRight = s.length - i - 1;
+      buf.write(s[i]);
+      if (fromRight > 0 && fromRight % 3 == 0) buf.write(',');
+    }
+    return buf.toString();
+  }
+}
+
+class _TxCard extends StatelessWidget {
+  const _TxCard({required this.tx});
+  final _Tx tx;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final green = const Color(0xFF12B76A);
+    final red = const Color(0xFFF04438);
+    final amt = '${tx.type == _TxType.inward ? '+' : '-'}${_inr(tx.amount)}';
+    final amtColor = tx.type == _TxType.inward ? green : red;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // First row: date + amount
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _fmtDate(tx.date),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ),
+                Text(amt, style: TextStyle(fontWeight: FontWeight.w800, color: amtColor)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            // Party (bold)
+            Text(tx.party, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            // Chips row: IN/OUT + Method + Reference
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _TypeChip(type: tx.type),
+                _Chip(label: tx.method),
+                _Chip(label: tx.reference, mono: true),
+              ],
+            ),
+            if (tx.notes.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(tx.notes, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _fmtDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _inr(int v) => '₹${_comma(v)}';
+  String _comma(int v) {
+    final s = v.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final fromRight = s.length - i - 1;
+      buf.write(s[i]);
+      if (fromRight > 0 && fromRight % 3 == 0) buf.write(',');
+    }
+    return buf.toString();
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label, this.mono = false});
+  final String label;
+  final bool mono;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.surfaceVariant.withOpacity(.45),
+        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontFeatures: mono ? const [FontFeature.tabularFigures()] : null,
         ),
       ),
     );
   }
 }
 
-// Simple model for demo search
-class _SearchItem {
-  final String type;
-  final String label;
-  const _SearchItem({required this.type, required this.label});
+class _TypeChip extends StatelessWidget {
+  const _TypeChip({required this.type});
+  final _TxType type;
+
+  @override
+  Widget build(BuildContext context) {
+    final isIn = type == _TxType.inward;
+    final bg = isIn ? const Color(0xFF0B0B14) : const Color(0xFFF2F4F7);
+    final fg = isIn ? Colors.white : const Color(0xFF101828);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+        child: Text(isIn ? 'IN' : 'OUT',
+            style: TextStyle(color: fg, fontWeight: FontWeight.w800, letterSpacing: 0.2)),
+      ),
+    );
+  }
+}
+
+class _InfoCallout extends StatelessWidget {
+  const _InfoCallout({required this.icon, required this.color, required this.text});
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withOpacity(.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(.35)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: color, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

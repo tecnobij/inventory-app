@@ -15,34 +15,36 @@ Widget build(BuildContext context) {
 
   return Scaffold(
 
-    body: DefaultTabController(
-      length: 3,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          SegmentedTabs(
-            tabs: [
-              (Icons.receipt_long, 'Sales Orders'),
-              (Icons.description, 'Invoices'),
-              (Icons.add, 'Create SO'),
-            ],
-           
-          ),
-          const SizedBox(height: 16),
-
-          // Main content area with fixed height and scrollable children
-          Expanded(
-            child: TabBarView(
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildConstrainedScrollableContent((_) => _buildSalesOrdersTab(isMobile)),
-                _buildConstrainedScrollableContent((_) => _buildInvoicesTab(isMobile)),
-                _buildConstrainedScrollableContent((_) => _buildCreateSOTab(isMobile)),
+    body: SafeArea(
+      child: DefaultTabController(
+        length: 3,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            SegmentedTabs(
+              tabs: [
+                (Icons.receipt_long, 'Sales Orders'),
+                (Icons.description, 'Invoices'),
+                (Icons.add, 'Create SO'),
               ],
+             
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+      
+            // Main content area with fixed height and scrollable children
+            Expanded(
+              child: TabBarView(
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _buildConstrainedScrollableContent((_) => _buildSalesOrdersTab(isMobile)),
+                  _buildConstrainedScrollableContent((_) => _buildInvoicesTab(isMobile)),
+                  _buildConstrainedScrollableContent((_) => _buildCreateSOTab(isMobile)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   );

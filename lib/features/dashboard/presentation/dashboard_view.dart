@@ -40,7 +40,7 @@ class DashboardView extends StatelessWidget {
       title: Text(appBarTitle,  style: Theme.of(context)
                         .textTheme
                         .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w200),),
+                        ?.copyWith(fontWeight: FontWeight.w400),),
       titleSpacing: useWide ? 0 : 8,
       centerTitle: false,
       actions: [
@@ -157,7 +157,7 @@ class DashboardView extends StatelessWidget {
       return NavigationDestination(
         icon: Icon(action.icon),
         selectedIcon: Icon(action.icon),
-        label: action.label,
+        label:"",
       );
     }).toList();
   }
@@ -167,7 +167,7 @@ class _SideMenuMobile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actionsController = context.watch<ActionsController>();
-    final items = actionsController.favorites;
+    final items = actionsController.all;
 
     return SafeArea(
       child: Column(

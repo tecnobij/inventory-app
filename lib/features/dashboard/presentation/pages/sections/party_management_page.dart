@@ -16,34 +16,36 @@ class _PartyManagePageState extends State<PartyManagePage> {
 
  return Scaffold(
 
-      body: DefaultTabController(
-        length: 2,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-            SegmentedTabs(
-              
-              tabs:  [
-                (Icons.dashboard_customize_rounded, 'Customers'),
-                (Icons.person, 'Suppliers'),
-             
-              ],
-            ),
-
-            const SizedBox(height: 8),
-            Expanded(
-              child: TabBarView(
-
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                _buildQuotationList(context)  ,   // Organization tab (your existing form)
-               _buildEmptyState()
+      body: SafeArea(
+        child: DefaultTabController(
+          length: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+              SegmentedTabs(
                 
+                tabs:  [
+                  (Icons.dashboard_customize_rounded, 'Customers'),
+                  (Icons.person, 'Suppliers'),
+               
                 ],
               ),
-            ),
-          ],
+        
+              const SizedBox(height: 8),
+              Expanded(
+                child: TabBarView(
+        
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                  _buildQuotationList(context)  ,   // Organization tab (your existing form)
+                 _buildEmptyState()
+                  
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

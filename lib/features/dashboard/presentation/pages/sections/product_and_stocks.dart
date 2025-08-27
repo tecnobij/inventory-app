@@ -7,7 +7,6 @@ class ProductPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
 
@@ -43,17 +42,9 @@ class ProductPage extends StatelessWidget {
                 ),
               ),
 
-              // Bottom hint (optional; remove if not needed)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                child: Text(
-                  'Ctrl+K for quick search • Alt+N for new item',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: scheme.onSurfaceVariant),
-                ),
-              ),
+            
+             
+              
             ],
           ),
         ),
@@ -599,7 +590,7 @@ class _StockMovementsTabState extends State<_StockMovementsTab> {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
           decoration:
               BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
           child: Center(child: Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.w700))),
