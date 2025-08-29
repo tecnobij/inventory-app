@@ -480,7 +480,7 @@ class _LowStockCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7F6), // soft red bg
+      //  color: const Color(0xFFFFF7F6), // soft red bg
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFF4C7C3)),
       ),

@@ -63,7 +63,7 @@ class ManageActionsPage extends StatelessWidget {
 }
 
 class _FavoritesEditor extends StatelessWidget {
-  const _FavoritesEditor({super.key});
+  const _FavoritesEditor();
 
   @override
   Widget build(BuildContext context) {

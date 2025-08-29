@@ -1,4 +1,5 @@
 import 'package:bhago/features/dashboard/model/action_item.dart';
+import 'package:bhago/features/dashboard/presentation/widgets/theme_toggle.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -74,7 +75,7 @@ class DashboardView extends StatelessWidget {
             child: const Text('AC', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ),
-        
+           ThemeQuickToggle(),
       ],
       // Dynamically set the title here
     );
@@ -86,30 +87,7 @@ class DashboardView extends StatelessWidget {
         body: Row(
           children: [
             // Sidebar
-            Container(
-              width: 220,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.8),
-                    Theme.of(context).colorScheme.surface,
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                border: Border(
-                  right: BorderSide(color: Theme.of(context).dividerColor),
-                ),
-              ),
-              child: SideBar(
-                width: 220,
-                onOpenAll: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ManageActionsPage()),
-                  );
-                },
-              ),
-            ),
+             buildSidebar(context), 
             const VerticalDivider(width: 1, thickness: 0.8),
             // Main content
             Expanded(
@@ -386,6 +364,61 @@ class _DashboardBody extends StatelessWidget {
       ],
     );
   }
+}
+// Sidebar shell with dark-mode friendly gradient and contrast.
+Widget buildSidebar(BuildContext context) {
+  final theme  = Theme.of(context);
+  final scheme = theme.colorScheme;
+  final isDark = theme.brightness == Brightness.dark;
+
+  // Gently lift surfaces in dark mode so they’re not pitch black.
+  Color lift(Color base, {double white = .08}) =>
+      isDark ? Color.alphaBlend(Colors.white.withOpacity(white), base) : base;
+
+  final top    = lift(scheme.surfaceVariant);
+  final bottom = lift(scheme.surface, white: .06);
+
+  // Pick text/icon color that actually contrasts with the blended bg.
+  final midBg = Color.lerp(top, bottom, 0.5)!;
+  final Brightness midBrightness = ThemeData.estimateBrightnessForColor(midBg);
+  final Color fg = (midBrightness == Brightness.dark)
+      ? Colors.white
+      : const Color(0xFF111827); // near-black for light backgrounds
+
+  return Container(
+    width: 220,
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [top, bottom],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ),
+      border: Border(
+        right: BorderSide(color: scheme.outlineVariant.withOpacity(isDark ? .3 : 1)),
+      ),
+    ),
+    // Force tiles/icons/text to use the computed 'fg'
+    child: Theme(
+      data: theme.copyWith(
+        listTileTheme: ListTileThemeData(
+          iconColor: fg,
+          textColor: fg,
+          selectedColor: scheme.primary,
+          selectedTileColor: scheme.primary.withOpacity(isDark ? .16 : .10),
+        ),
+        iconTheme: IconThemeData(color: fg),
+        textTheme: theme.textTheme.apply(bodyColor: fg, displayColor: fg),
+      ),
+      child: SideBar(
+        width: 220,
+        onOpenAll: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ManageActionsPage()),
+          );
+        },
+      ),
+    ),
+  );
 }
 
 class _MetricData {

@@ -49,13 +49,14 @@ final lightBase = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
     colorSchemeSeed: const Color(0xFF1DB954),
+    
   );
     return MaterialApp(
       title: 'BhaGo',
       debugShowCheckedModeBanner: false,
       themeMode: themeCtrl.themeMode,
      theme: lightBase.copyWith(textTheme: _boldAll(lightBase.textTheme)),
-   // darkTheme: darkBase.copyWith(textTheme: _boldAll(darkBase.textTheme)),
+    darkTheme: darkBase.copyWith(textTheme: _boldAll(darkBase.textTheme)),
       home: const _HomeDecider(), // <— decide here
     );
   }

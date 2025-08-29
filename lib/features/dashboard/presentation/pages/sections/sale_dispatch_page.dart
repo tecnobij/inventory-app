@@ -225,7 +225,7 @@ Widget _buildConstrainedScrollableContent(WidgetBuilder builder) {
     return Container(
       constraints: const BoxConstraints(minWidth: 1000),
       decoration: BoxDecoration(
-        color: Colors.white,
+       // color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 1, blurRadius: 4, offset: Offset(0, 2))],
       ),
@@ -234,7 +234,7 @@ Widget _buildConstrainedScrollableContent(WidgetBuilder builder) {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+             // color: Colors.grey.shade50,
               borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
             ),
             child: const Row(
@@ -354,7 +354,7 @@ Widget _buildConstrainedScrollableContent(WidgetBuilder builder) {
       child: Container(
         constraints: const BoxConstraints(minWidth: 1200),
         decoration: BoxDecoration(
-          color: Colors.white,
+        //  color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 1, blurRadius: 4, offset: Offset(0, 2))],
         ),
@@ -363,7 +363,7 @@ Widget _buildConstrainedScrollableContent(WidgetBuilder builder) {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+             //   color: Colors.grey.shade50,
                 borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
               ),
               child: const Row(
