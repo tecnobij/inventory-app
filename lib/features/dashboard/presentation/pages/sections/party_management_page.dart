@@ -125,19 +125,19 @@ class _PartyManagePageState extends State<PartyManagePage> {
                               icon: const Icon(Icons.remove_red_eye, size: 20),
                               onPressed: () {},
                             ),
-                            if (row["canConvert"] == true)
-                              OutlinedButton.icon(
-                                onPressed: () {},
-                                icon: const Icon(Icons.description, size: 16),
-                                label: const Text("Convert to SO"),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
+                            // if (row["canConvert"] == true)
+                            //   OutlinedButton.icon(
+                            //     onPressed: () {},
+                            //     icon: const Icon(Icons.description, size: 16),
+                            //     label: const Text("Convert to SO"),
+                            //     style: OutlinedButton.styleFrom(
+                            //       padding: const EdgeInsets.symmetric(
+                            //           horizontal: 8, vertical: 4),
+                            //       shape: RoundedRectangleBorder(
+                            //         borderRadius: BorderRadius.circular(8),
+                            //       ),
+                            //     ),
+                            //   ),
                           ],
                         )),
                       ]);

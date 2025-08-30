@@ -451,7 +451,7 @@ String? gstin(String? v) {
                           MaterialPageRoute(builder: (_) => const DashboardView()),
                         );
                       },
-                      child: const Text('Skip for now',style: TextStyle(color: Colors.black,fontWeight: FontWeight.bold)),
+                      child: const Text('Skip for now',style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
