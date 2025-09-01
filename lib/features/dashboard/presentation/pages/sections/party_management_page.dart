@@ -209,56 +209,110 @@ class _PartyManagePageState extends State<PartyManagePage> {
     );
   }
 
-  Widget _buildSearchFilter() {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: "Search Customer...",
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
+Widget _buildSearchFilter() {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final w = constraints.maxWidth;
+      final isCompact = w < 520;   // phones
+      final isMedium  = w < 900;   // small tablets / narrow windows
+
+      // Reusable pieces
+      final searchField = TextField(
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: "Search Customer...",
+          prefixIcon: const Icon(Icons.search),
+          filled: true,
+          fillColor: Colors.grey.shade100,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
           ),
-          const SizedBox(width: 12),
-          OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.filter_list),
-            label: const Text("Filters"),
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        ),
+      );
+
+      final filterBtn = OutlinedButton.icon(
+        onPressed: () {},
+        icon: const Icon(Icons.filter_list),
+        label: const Text("Filters"),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 48), // consistent tap target
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+
+      final addBtn = FilledButton.icon(
+        onPressed: () {},
+        icon: const Icon(Icons.add),
+        label: const Text('Add Customer'),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 48),
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+
+      // ====== Phones (stacked) ======
+      if (isCompact) {
+        return Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Search full-width
+              searchField,
+              const SizedBox(height: 12),
+              // Buttons share the row space equally
+              Row(
+                children: [
+                  Expanded(child: filterBtn),
+                  const SizedBox(width: 8),
+                  Expanded(child: addBtn),
+                ],
               ),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            ),
+            ],
           ),
-          const Spacer(),
-            FilledButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.add),
-              label: const Text('Add Customer'),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+        );
+      }
+
+      // ====== Small tablets / narrow windows (single row, no spacer) ======
+      if (isMedium) {
+        return Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Expanded(child: searchField),
+              const SizedBox(width: 12),
+              // Keep buttons inline; Flexible prevents overflow on tighter widths
+              Flexible(fit: FlexFit.loose, child: filterBtn),
+              const SizedBox(width: 8),
+              Flexible(fit: FlexFit.loose, child: addBtn),
+            ],
+          ),
+        );
+      }
+
+      // ====== Desktop / wide screens (search + filter on left, add on right) ======
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Expanded(flex: 2, child: searchField),
+            const SizedBox(width: 12),
+            filterBtn,
+            const Spacer(),
+            addBtn,
+          ],
+        ),
+      );
+    },
+  );
+}
+
 
   Widget _buildStatus(String status) {
     if (status == "Open") {

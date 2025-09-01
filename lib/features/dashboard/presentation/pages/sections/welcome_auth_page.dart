@@ -116,7 +116,7 @@ class WelcomeAuthPage extends StatelessWidget {
                   // Another method
                   TextButton(
                     onPressed: () {},
-                    child:  Text('Use another method',  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black,fontWeight: FontWeight.w600),),
+                    child:  Text('Use another method',  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),),
                   ),
 
                   const SizedBox(height: 18),

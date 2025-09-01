@@ -176,20 +176,53 @@ Widget _buildConstrainedScrollableContent(WidgetBuilder builder) {
 
   // Reusable UI components:
 
-  Widget _buildSearchField(String hint) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+ // Put this inside your State class (so you have `context` & can call setState)
+Widget _buildSearchField(
+  String hint, {
+  TextEditingController? controller,
+  ValueChanged<String>? onChanged,
+  ValueChanged<String>? onSubmitted,
+  VoidCallback? onClear,
+}) {
+  return TextFormField(
+    controller: controller,
+    onChanged: onChanged,
+    onFieldSubmitted: onSubmitted,
+    textInputAction: TextInputAction.search,
+    decoration: InputDecoration(
+      hintText: hint,
+      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+      // Clear button appears only when there's text AND a controller is provided
+      suffixIcon: controller == null
+          ? null
+          : ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (_, value, __) {
+                if (value.text.isEmpty) return const SizedBox.shrink();
+                return IconButton(
+                  tooltip: 'Clear',
+                  icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                  onPressed: () {
+                    controller.clear();
+                    onClear?.call();
+                    // If you want the suffixIcon to refresh immediately:
+                    setState(() {});
+                  },
+                );
+              },
+            ),
+      isDense: true,
+      filled: true,
+      fillColor: Colors.grey.shade100,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
       ),
-      child: Row(children: [
-        const Icon(Icons.search, color: Colors.grey),
-        const SizedBox(width: 8),
-        Text(hint, style: const TextStyle(color: Colors.grey)),
-      ]),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildFilterButton() {
     return Container(
