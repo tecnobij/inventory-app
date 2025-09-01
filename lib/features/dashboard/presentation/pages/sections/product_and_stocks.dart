@@ -610,42 +610,128 @@ class _StockMovementsTabState extends State<_StockMovementsTab> {
       padding: const EdgeInsets.all(16),
       children: [
         // Controls
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _searchCtrl,
-                decoration: soft('Search movements...'),
+// Controls (responsive)
+LayoutBuilder(
+  builder: (context, c) {
+    final w = c.maxWidth;
+    final isDesktop = w >= 900;
+    final isCompact = w < 520;
+
+    // ----- Stacked layout for very small phones -----
+    if (isCompact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _searchCtrl,
+            decoration: soft('Search movements...'),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.filter_alt_outlined),
+                  label: const Text('Filter'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.filter_alt_outlined),
-              label: const Text('Filter'),
-              style: OutlinedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.add),
+                  label: const Text('Adjust'), // shorter for mobile
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
               ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    // ----- Tablet-ish row (tighter spacing) -----
+    if (!isDesktop) {
+      return Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: soft('Search movements...'),
             ),
-            const Spacer(),
-            FilledButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.add),
-              label: const Text('Manual Adjustment'),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
+          ),
+          const SizedBox(width: 10),
+          OutlinedButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.filter_alt_outlined),
+            label: const Text('Filter'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-          ],
+          ),
+          const SizedBox(width: 10),
+          FilledButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.add),
+            label: const Text('Manual Adjustment'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // ----- Desktop row (your original) -----
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _searchCtrl,
+            decoration: soft('Search movements...'),
+          ),
         ),
+        const SizedBox(width: 10),
+        OutlinedButton.icon(
+          onPressed: () {},
+          icon: const Icon(Icons.filter_alt_outlined),
+          label: const Text('Filter'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const Spacer(),
+        FilledButton.icon(
+          onPressed: () {},
+          icon: const Icon(Icons.add),
+          label: const Text('Manual Adjustment'),
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ],
+    );
+  },
+),
+
         const SizedBox(height: 12),
 
         // Table
@@ -834,7 +920,7 @@ Widget _countPill(int n, {Color color = Colors.grey}) => Container(
 Widget _chip(String text) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAEAEA),
+      //  color: const Color(0xFFEAEAEA),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
