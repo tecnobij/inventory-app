@@ -5,11 +5,13 @@ class ActionItem {
   final String label;
   final IconData icon;
   final Widget page;
+// 🎨 new field for icon color
 
   const ActionItem({
     required this.id,
     required this.label,
     required this.icon,
     required this.page,
+
   });
 }

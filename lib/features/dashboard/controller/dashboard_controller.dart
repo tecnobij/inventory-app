@@ -15,12 +15,12 @@ class DashboardController extends ChangeNotifier {
     NavItem(
       label: 'Sales',
       icon: Icons.point_of_sale_outlined,
-      page: SalesPage(),
+      page: ProductPage(),
     ),
     NavItem(
       label: 'Purchase',
       icon: Icons.shopping_cart_outlined,
-      page: PurchasePage(),
+      page: SalesDispatchPage(),
     ),
     NavItem(
       label: 'Products',
@@ -36,17 +36,17 @@ class DashboardController extends ChangeNotifier {
     NavItem(
       label: 'Reports',
       icon: Icons.receipt_long_outlined,
-      page: ReportPage(),
+      page: CreditPaymentsPage(),
     ),
     NavItem(
       label: 'Finance',
       icon: Icons.account_balance_wallet_outlined,
-      page: FinancePage(),
+      page: ReportPage(),
     ),
     NavItem(
       label: 'Customers',
       icon: Icons.people_outline,
-      page: CustomersPage(),
+      page: SalesDispatchPage(),
     ),
     NavItem(
       label: 'Vendors',
