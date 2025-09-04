@@ -1,3 +1,4 @@
+import 'package:bhago/app/data/local_database.dart';
 import 'package:bhago/features/dashboard/controller/theme_controller.dart';
 import 'package:bhago/features/dashboard/controller/settings_controller.dart';
 import 'package:bhago/features/dashboard/presentation/pages/sections/setting_page.dart';
@@ -9,9 +10,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'features/dashboard/controller/actions_controller.dart';
 import 'features/dashboard/presentation/dashboard_view.dart';
 
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ Initialize SQLite
+  final db = AppDatabase();
 
   final actions = ActionsController();
   await actions.load();
@@ -25,6 +28,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
+        Provider.value(value: db), // ✅ inject DB globally
         ChangeNotifierProvider.value(value: actions),
         ChangeNotifierProvider.value(value: themeCtrl),
         ChangeNotifierProvider.value(value: settings),
@@ -40,43 +44,43 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeCtrl = context.watch<ThemeController>();
-final lightBase = ThemeData(
-    useMaterial3: true,
-    colorSchemeSeed: const Color(0xFF1DB954),
-  );
+    final lightBase = ThemeData(
+      useMaterial3: true,
+      colorSchemeSeed: const Color(0xFF1DB954),
+    );
 
-  final darkBase = ThemeData(
-    useMaterial3: true,
-    brightness: Brightness.dark,
-    colorSchemeSeed: const Color(0xFF1DB954),
-    
-  );
+    final darkBase = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorSchemeSeed: const Color(0xFF1DB954),
+    );
     return MaterialApp(
       title: 'BhaGo',
       debugShowCheckedModeBanner: false,
       themeMode: themeCtrl.themeMode,
-     theme: lightBase.copyWith(textTheme: _boldAll(lightBase.textTheme)),
-    darkTheme: darkBase.copyWith(textTheme: _boldAll(darkBase.textTheme)),
+      theme: lightBase.copyWith(textTheme: _boldAll(lightBase.textTheme)),
+      darkTheme: darkBase.copyWith(textTheme: _boldAll(darkBase.textTheme)),
       home: const _HomeDecider(), // <— decide here
     );
   }
 }
+
 TextTheme _boldAll(TextTheme t) => t.copyWith(
-  displayLarge:  t.displayLarge?.copyWith(fontWeight: FontWeight.w700),
+  displayLarge: t.displayLarge?.copyWith(fontWeight: FontWeight.w700),
   displayMedium: t.displayMedium?.copyWith(fontWeight: FontWeight.w700),
-  displaySmall:  t.displaySmall?.copyWith(fontWeight: FontWeight.w700),
+  displaySmall: t.displaySmall?.copyWith(fontWeight: FontWeight.w700),
   headlineLarge: t.headlineLarge?.copyWith(fontWeight: FontWeight.w700),
-  headlineMedium:t.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+  headlineMedium: t.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
   headlineSmall: t.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-  titleLarge:    t.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-  titleMedium:   t.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-  titleSmall:    t.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-  bodyLarge:     t.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
-  bodyMedium:    t.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-  bodySmall:     t.bodySmall?.copyWith(fontWeight: FontWeight.w700),
-  labelLarge:    t.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-  labelMedium:   t.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-  labelSmall:    t.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+  titleLarge: t.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+  titleMedium: t.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+  titleSmall: t.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+  bodyLarge: t.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+  bodyMedium: t.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+  bodySmall: t.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+  labelLarge: t.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+  labelMedium: t.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+  labelSmall: t.labelSmall?.copyWith(fontWeight: FontWeight.w700),
 );
 
 class _HomeDecider extends StatelessWidget {
@@ -95,7 +99,9 @@ class _HomeDecider extends StatelessWidget {
       future: _isSignedIn(),
       builder: (context, snap) {
         if (!s.loaded || snap.connectionState != ConnectionState.done) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
         final signedIn = snap.data ?? false;
@@ -111,4 +117,3 @@ class _HomeDecider extends StatelessWidget {
     );
   }
 }
-
