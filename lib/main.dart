@@ -1,14 +1,15 @@
 import 'package:bhago/app/data/local_database.dart';
+import 'package:bhago/core/auth_gate.dart';
+import 'package:bhago/features/dashboard/controller/auth_provider.dart';
 import 'package:bhago/features/dashboard/controller/theme_controller.dart';
 import 'package:bhago/features/dashboard/controller/settings_controller.dart';
-import 'package:bhago/features/dashboard/presentation/pages/sections/setting_page.dart';
-import 'package:bhago/features/dashboard/presentation/pages/sections/welcome_auth_page.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 
 import 'features/dashboard/controller/actions_controller.dart';
-import 'features/dashboard/presentation/dashboard_view.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,8 +23,7 @@ Future<void> main() async {
   final themeCtrl = ThemeController();
   await themeCtrl.load();
 
-  final settings = SettingsProvider();
-  await settings.load();
+
 
   runApp(
     MultiProvider(
@@ -31,7 +31,12 @@ Future<void> main() async {
         Provider.value(value: db), // ✅ inject DB globally
         ChangeNotifierProvider.value(value: actions),
         ChangeNotifierProvider.value(value: themeCtrl),
-        ChangeNotifierProvider.value(value: settings),
+       ChangeNotifierProvider(create: (ctx) => AuthProvider()..load()),
+        ChangeNotifierProvider(create: (ctx) => SettingsProvider(db)..load()),
+          Provider<AppDatabase>(create: (_) => db, dispose: (_, d) => d.close()),
+        ChangeNotifierProvider(
+          create: (ctx) => SettingsProvider(ctx.read<AppDatabase>())..load(),
+        ),
       ],
       child: const MyApp(),
     ),
@@ -60,7 +65,7 @@ class MyApp extends StatelessWidget {
       themeMode: themeCtrl.themeMode,
       theme: lightBase.copyWith(textTheme: _boldAll(lightBase.textTheme)),
       darkTheme: darkBase.copyWith(textTheme: _boldAll(darkBase.textTheme)),
-      home: const _HomeDecider(), // <— decide here
+      home:AuthGate(), // <— decide here
     );
   }
 }
@@ -83,37 +88,37 @@ TextTheme _boldAll(TextTheme t) => t.copyWith(
   labelSmall: t.labelSmall?.copyWith(fontWeight: FontWeight.w700),
 );
 
-class _HomeDecider extends StatelessWidget {
-  const _HomeDecider();
+// class _HomeDecider extends StatelessWidget {
+//   const _HomeDecider();
 
-  Future<bool> _isSignedIn() async {
-    final sp = await SharedPreferences.getInstance();
-    return sp.getBool('auth_ok') ?? false;
-  }
+//   Future<bool> _isSignedIn() async {
+//     final sp = await SharedPreferences.getInstance();
+//     return sp.getBool('auth_ok') ?? false;
+//   }
 
-  @override
-  Widget build(BuildContext context) {
-    final s = context.watch<SettingsProvider>();
+//   @override
+//   Widget build(BuildContext context) {
+//     final s = context.watch<SettingsProvider>();
 
-    return FutureBuilder<bool>(
-      future: _isSignedIn(),
-      builder: (context, snap) {
-        if (!s.loaded || snap.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
+//     return FutureBuilder<bool>(
+//       future: _isSignedIn(),
+//       builder: (context, snap) {
+//         if (!s.loaded || snap.connectionState != ConnectionState.done) {
+//           return const Scaffold(
+//             body: Center(child: CircularProgressIndicator()),
+//           );
+//         }
 
-        final signedIn = snap.data ?? false;
-        if (!signedIn) {
-          // First time: show Welcome / Sign-in page
-          return const WelcomeAuthPage();
-        }
+//         final signedIn = snap.data ?? false;
+//         if (!signedIn) {
+//           // First time: show Welcome / Sign-in page
+//           return const WelcomeAuthPage();
+//         }
 
-        // Signed in: decide between Settings onboarding or Dashboard
-        final showSettings = !(s.onboarded || s.isComplete);
-        return showSettings ? const SettingPage() : const DashboardView();
-      },
-    );
-  }
-}
+//         // Signed in: decide between Settings onboarding or Dashboard
+//         final showSettings = !(s.onboarded );
+//         return showSettings ? const WelcomeAuthPage() : const DashboardView();
+//       },
+//     );
+//   }
+// }
