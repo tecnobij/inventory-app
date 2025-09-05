@@ -1,6 +1,7 @@
 import 'package:bhago/app/data/local_database.dart';
 import 'package:bhago/core/auth_gate.dart';
 import 'package:bhago/features/dashboard/controller/auth_provider.dart';
+import 'package:bhago/features/dashboard/controller/reports_controller.dart';
 import 'package:bhago/features/dashboard/controller/theme_controller.dart';
 import 'package:bhago/features/dashboard/controller/settings_controller.dart';
 
@@ -17,8 +18,7 @@ Future<void> main() async {
   // ✅ Initialize SQLite
   final db = AppDatabase();
 
-  final actions = ActionsController();
-  await actions.load();
+
 
   final themeCtrl = ThemeController();
   await themeCtrl.load();
@@ -29,7 +29,14 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         Provider.value(value: db), // ✅ inject DB globally
-        ChangeNotifierProvider.value(value: actions),
+     ChangeNotifierProvider(
+  create: (_) {
+    final c = ActionsController();
+    c.load(); // kick off SharedPreferences load + sanitize
+    return c;
+  },
+),
+
         ChangeNotifierProvider.value(value: themeCtrl),
        ChangeNotifierProvider(create: (ctx) => AuthProvider()..load()),
         ChangeNotifierProvider(create: (ctx) => SettingsProvider(db)..load()),

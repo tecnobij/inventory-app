@@ -1,4 +1,4 @@
-// actions_controller.dart
+// lib/features/dashboard/controller/actions_controller.dart
 import 'package:bhago/features/dashboard/presentation/pages/manage_actions_page.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -28,13 +28,20 @@ class ActionsController extends ChangeNotifier {
 
   // Getters
   List<ActionItem> get allActions => List.unmodifiable(all);
-  List<ActionItem> get favorites =>
-      _favoriteIds.map((id) => all.firstWhere((a) => a.id == id)).toList();
+
+  // SAFE: filter out unknown ids instead of throwing
+  List<ActionItem> get favorites {
+    final byId = {for (final a in all) a.id: a};
+    return _favoriteIds.map((id) => byId[id]).whereType<ActionItem>().toList();
+  }
+
   int get selectedFavoriteIndex => _selectedIndex;
 
   ActionItem get selectedAction {
-    if (favorites.isEmpty) return all.first;
-    return favorites[_selectedIndex.clamp(0, favorites.length - 1)];
+    final favs = favorites;
+    if (favs.isEmpty) return all.first;
+    final clamped = _selectedIndex.clamp(0, favs.length - 1);
+    return favs[clamped];
   }
 
   // ===== Persistence =====
@@ -43,22 +50,39 @@ class ActionsController extends ChangeNotifier {
     _favoriteIds = sp.getStringList('fav_ids') ?? _favoriteIds;
     _selectedIndex = sp.getInt('fav_sel') ?? 0;
 
-    // ✅ Ensure pinned favorites are always present
+    // Migrate legacy ids if you renamed any pages
+    _favoriteIds = _favoriteIds.map((id) => _migrateLegacyId(id)).toList();
+
+    // Remove unknown ids
+    final valid = {for (final a in all) a.id};
+    _favoriteIds = _favoriteIds.where(valid.contains).toList();
+
+    // Ensure pinned favorites exist
     for (final id in _pinnedFavIds) {
       if (!_favoriteIds.contains(id)) {
-        _favoriteIds.insert(0, id); // keep pinned near the front
+        _favoriteIds.insert(0, id);
       }
     }
 
+    // Fallback / clamp
     if (_favoriteIds.isEmpty) {
       _favoriteIds = ['home', 'sales'];
-      _selectedIndex = 0;
     }
     if (_selectedIndex >= _favoriteIds.length) {
       _selectedIndex = 0;
     }
 
+    await _persist();
     notifyListeners();
+  }
+
+  String _migrateLegacyId(String id) {
+    const map = {
+      'credit': 'payments',
+      'credit_payments': 'payments',
+      'home_page': 'home',
+    };
+    return map[id] ?? id;
   }
 
   Future<void> _persist() async {
@@ -69,7 +93,8 @@ class ActionsController extends ChangeNotifier {
 
   // ===== Mutations =====
   void setSelectedFavorite(int index) {
-    if (index < 0 || index >= favorites.length) return;
+    final favs = favorites;
+    if (index < 0 || index >= favs.length) return;
     _selectedIndex = index;
     _persist();
     notifyListeners();
@@ -77,6 +102,9 @@ class ActionsController extends ChangeNotifier {
 
   void reorderFavorites(int oldIndex, int newIndex) {
     if (newIndex > oldIndex) newIndex -= 1;
+    if (oldIndex < 0 || oldIndex >= _favoriteIds.length) return;
+    if (newIndex < 0 || newIndex >= _favoriteIds.length) return;
+
     final moved = _favoriteIds.removeAt(oldIndex);
     _favoriteIds.insert(newIndex, moved);
 
@@ -92,6 +120,8 @@ class ActionsController extends ChangeNotifier {
   }
 
   void addFavorite(String id) {
+    // reject unknown ids
+    if (!all.any((a) => a.id == id)) return;
     if (!_favoriteIds.contains(id)) {
       _favoriteIds.add(id);
       _persist();
