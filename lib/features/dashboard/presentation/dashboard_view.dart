@@ -1,11 +1,14 @@
-import 'package:bhago/features/dashboard/model/action_item.dart';
+// lib/features/dashboard/presentation/dashboard_view.dart
+import 'package:bhago/features/dashboard/presentation/pages/manage_actions_page.dart';
 import 'package:bhago/features/dashboard/presentation/widgets/theme_toggle.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../controller/actions_controller.dart';
-import 'pages/manage_actions_page.dart';
 import 'widgets/side_bar.dart';
+import '../controller/actions_controller.dart';
+import '../controller/dashboard_controller_.dart';
+import 'package:bhago/app/data/local_database.dart';
+import 'package:bhago/features/dashboard/controller/settings_controller.dart';
 
 class DashboardView extends StatelessWidget {
   const DashboardView({super.key});
@@ -19,112 +22,112 @@ class DashboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = context.watch<ActionsController>();
+    final actionsCtrl = context.watch<ActionsController>();
+final selected     = actionsCtrl.selectedAction;
+final content      = (selected.id == 'home') ? const _DashboardBody() : selected.page;
+final appBarTitle  = selected.label;
+    //final actionsCtrl = context.watch<ActionsController>();
     final useWide = _useWideLayout(context);
+   // final selected = actionsCtrl.selectedAction;
+   // final content = (selected.id == 'home') ? const _DashboardBody() : selected.page;
+   // final appBarTitle = selected.label;
 
-    final selected = ctrl.selectedAction;
-    final content = (selected.id == 'home') ? const _DashboardBody() : selected.page;
-
-    // AppBar title based on the selected action
-    final appBarTitle = selected.label;
-
-    final appBar = AppBar(
-      elevation: 0,
-      automaticallyImplyLeading: !useWide,
-      leading: useWide
-          ? const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: _LogoBadge(label: 'WarehouseOS', size: 32),
-            )
-          : null,
-      leadingWidth: useWide ? 220 : null,
-      title: Text(appBarTitle,  style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w400),),
-      titleSpacing: useWide ? 0 : 8,
-      centerTitle: false,
-      actions: [
-        const SizedBox(width: 4),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none)),
-              Positioned(
-                right: 6,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text('3', style: TextStyle(color: Colors.white, fontSize: 10)),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(right: 12, left: 4),
-          child: CircleAvatar(
-            radius: 16,
-            backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-            child: const Text('AC', style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ),
-           ThemeQuickToggle(),
-      ],
-      // Dynamically set the title here
-    );
-
-    if (useWide) {
-      return Scaffold(
-        floatingActionButton: const _HelpFab(),
-        appBar: appBar,
-        body: Row(
-          children: [
-            // Sidebar
-             buildSidebar(context), 
-            const VerticalDivider(width: 1, thickness: 0.8),
-            // Main content
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(context).colorScheme.background,
-                      Theme.of(context).colorScheme.surface.withOpacity(0.9),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: content,
-                ),
-              ),
+    // 💉 Provide DashboardController here (needs db + settings from upper DI)
+    return ChangeNotifierProvider(
+      create: (_) => DashboardController(
+        db: context.read<AppDatabase>(),
+        settings: context.read<SettingsProvider>(),
+      ),
+      child: Builder(
+        builder: (context) {
+          final appBar = AppBar(
+            elevation: 0,
+            automaticallyImplyLeading: !useWide,
+            leading: useWide
+                ? const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: _LogoBadge(label: 'WarehouseOS', size: 32),
+                  )
+                : null,
+            leadingWidth: useWide ? 220 : null,
+            title: Text(
+              appBarTitle,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w400),
             ),
-          ],
-        ),
-      );
-    } else {
-      return Scaffold(
-        appBar: appBar,
-        drawer: Drawer(child: _SideMenuMobile()),
-        body: content,
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: context.watch<ActionsController>().selectedFavoriteIndex,
-          destinations: _buildNavigationDestinations(context),
-          onDestinationSelected: (i) {
-            context.read<ActionsController>().setSelectedFavorite(i);
-          },
-        ),
-      );
-    }
+            titleSpacing: useWide ? 0 : 8,
+            centerTitle: false,
+            actions: [
+              const SizedBox(width: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none)),
+                    // (badge can be wired to a db-backed notifications table later)
+                  ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(right: 12, left: 4),
+                child: CircleAvatar(
+                  radius: 16,
+                  child: Text('AC', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+              ThemeQuickToggle(),
+            ],
+          );
+
+          if (useWide) {
+            return Scaffold(
+              floatingActionButton: const _HelpFab(),
+              appBar: appBar,
+              body: Row(
+                children: [
+                  buildSidebar(context),
+                  const VerticalDivider(width: 1, thickness: 0.8),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Theme.of(context).colorScheme.background,
+                            Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child:  Padding(
+                        padding: EdgeInsets.all(12.0),
+                        child:content,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            return Scaffold(
+              appBar: appBar,
+              drawer: Drawer(child: _SideMenuMobile()),
+              body: content,
+              bottomNavigationBar: NavigationBar(
+                selectedIndex: context.watch<ActionsController>().selectedFavoriteIndex,
+                destinations: _buildNavigationDestinations(context),
+                onDestinationSelected: (i) {
+                  context.read<ActionsController>().setSelectedFavorite(i);
+                },
+              ),
+            );
+          }
+        },
+      ),
+    );
   }
 
   List<NavigationDestination> _buildNavigationDestinations(BuildContext context) {
@@ -135,7 +138,7 @@ class DashboardView extends StatelessWidget {
       return NavigationDestination(
         icon: Icon(action.icon),
         selectedIcon: Icon(action.icon),
-        label:"",
+        label: "",
       );
     }).toList();
   }
@@ -163,16 +166,10 @@ class _SideMenuMobile extends StatelessWidget {
                   leading: Icon(it.icon),
                   title: Text(it.label, style: const TextStyle(fontWeight: FontWeight.w600)),
                   onTap: () {
-                    if (i==0) {
-                         Navigator.pop(context);
-                    }else{
-                       Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => it.page),
-                    );
+                    Navigator.pop(context);
+                    if (i != 0) {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => it.page));
                     }
-                   
                   },
                 );
               },
@@ -209,10 +206,7 @@ class _LogoBadge extends StatelessWidget {
           width: size,
           height: size,
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)),
             child: Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -220,11 +214,7 @@ class _LogoBadge extends StatelessWidget {
                   _initials(label),
                   maxLines: 1,
                   softWrap: false,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
                 ),
               ),
             ),
@@ -237,9 +227,9 @@ class _LogoBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: appBarFg,
-            ),
+                  fontWeight: FontWeight.w700,
+                  color: appBarFg,
+                ),
           ),
         ),
       ],
@@ -249,178 +239,113 @@ class _LogoBadge extends StatelessWidget {
   String _initials(String name) {
     final t = name.trim();
     if (t.isEmpty) return 'WO';
-
     final parts = t.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
-
     final caps = RegExp(r'[A-Z]');
     final capChars = t.split('').where((c) => caps.hasMatch(c)).toList();
     if (capChars.length >= 2) return (capChars[0] + capChars[1]).toUpperCase();
     if (capChars.length == 1) return (t[0] + capChars[0]).toUpperCase();
-
     return t.substring(0, t.length >= 2 ? 2 : 1).toUpperCase();
   }
 }
 
-
-class _AppTile extends StatelessWidget {
-  const _AppTile({
-    required this.item,
-    required this.isFavorite,
-    required this.onOpen,
-    required this.onToggleFavorite,
-  });
-
-  final ActionItem item;
-  final bool isFavorite;
-  final VoidCallback onOpen;
-  final VoidCallback onToggleFavorite;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-  
-
-    return InkWell(
-      onTap: onOpen,
-      onLongPress: onToggleFavorite,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        decoration: BoxDecoration(
-        
-         
-          borderRadius: BorderRadius.circular(14),
-        ),
-        padding: const EdgeInsets.all(12),
-        child: Stack(
-          children: [
-            Align(
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(item.icon, size: 28),
-                  const SizedBox(height: 8),
-                  Text(
-                    item.label,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              right: 0,
-              top: 0,
-              child: IconButton.filledTonal(
-                visualDensity: VisualDensity.compact,
-                iconSize: 18,
-                onPressed: onToggleFavorite,
-                icon: Icon(
-                  isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: isFavorite ? Colors.amber : scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ===================================================================
-// DASHBOARD CONTENT (Home)
+// DASHBOARD CONTENT (Home) — now DB-backed
 // ===================================================================
 class _DashboardBody extends StatelessWidget {
   const _DashboardBody();
 
+  String _comma(num v) {
+    final s = v.toStringAsFixed(0);
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final fromRight = s.length - i - 1;
+      buf.write(s[i]);
+      if (fromRight > 0 && fromRight % 3 == 0) buf.write(',');
+    }
+    return buf.toString();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final pad = MediaQuery.of(context).size.width >= 1200 ? 20.0 : 16.0;
+    final ctrl = context.read<DashboardController>();
+
     return ListView(
-      padding: EdgeInsets.all(pad),
-      children: const [
-        _MetricsGrid(
-          metrics: [
-            _MetricData(title: 'Products', value: '1,248', deltaText: '+12%', icon: Icons.inventory_2_outlined, deltaPositive: true),
-            _MetricData(title: 'Suppliers', value: '89', deltaText: '+3%', icon: Icons.groups_2_outlined, deltaPositive: true),
-            _MetricData(title: 'Stock In Today', value: '156', subvalue: 'Out: 89', deltaText: '+8%', icon: Icons.trending_up, deltaPositive: true),
-            _MetricData(title: 'Low-stock Alerts', value: '23', badge: 'Requires Attention', badgeColor: Color(0xFFD92D20), icon: Icons.error_outline),
-          ],
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Metrics (stream)
+        StreamBuilder<DashboardMetrics>(
+          stream: ctrl.watchMetrics(),
+          builder: (context, snap) {
+            final data = snap.data;
+            final products = data?.products;
+            final suppliers = data?.suppliers;
+            final inToday = data?.stockInToday;
+            final outToday = data?.stockOutToday;
+            final low = data?.lowStockAlerts;
+            
+            final metrics = [
+              _MetricData(
+                title: 'Products',
+                value: products == null ? '—' : _comma(products),
+                icon: Icons.inventory_2_outlined,
+                deltaText: null,
+              ),
+              _MetricData(
+                title: 'Suppliers',
+                value: suppliers == null ? '—' : _comma(suppliers),
+                icon: Icons.groups_2_outlined,
+                deltaText: null,
+              ),
+              _MetricData(
+                title: 'Stock In Today',
+                value: inToday == null ? '—' : _comma(inToday),
+                subvalue: (outToday == null) ? null : 'Out: ${_comma(outToday)}',
+                icon: Icons.trending_up,
+                deltaText: null,
+              ),
+              _MetricData(
+                title: 'Low-stock Alerts',
+                value: low == null ? '—' : _comma(low),
+                badge: (low == null || low == 0) ? null : 'Requires Attention',
+                badgeColor: (low == null || low == 0) ? null : const Color(0xFFD92D20),
+                icon: Icons.error_outline,
+                deltaText: null,
+              ),
+            ];
+
+            return _MetricsGrid(metrics: metrics);
+          },
         ),
-        SizedBox(height: 16),
-        _ChartsRow(),
-        SizedBox(height: 16),
-        _RecentActivityCard(),
-        SizedBox(height: 12),
+        const SizedBox(height: 16),
+
+        const _ChartsRow(),
+        const SizedBox(height: 16),
+
+        // Recent activity (stream)
+        StreamBuilder<List<RecentMoveVM>>(
+          stream: ctrl.watchRecentMoves(limit: 6),
+          builder: (context, snap) {
+            final moves = snap.data ?? const [];
+            return _RecentActivityCard(moves: moves, loading: !snap.hasData);
+          },
+        ),
+
+        const SizedBox(height: 12),
       ],
     );
   }
 }
-// Sidebar shell with dark-mode friendly gradient and contrast.
-Widget buildSidebar(BuildContext context) {
-  final theme  = Theme.of(context);
-  final scheme = theme.colorScheme;
-  final isDark = theme.brightness == Brightness.dark;
 
-  // Gently lift surfaces in dark mode so they’re not pitch black.
-  Color lift(Color base, {double white = .08}) =>
-      isDark ? Color.alphaBlend(Colors.white.withOpacity(white), base) : base;
-
-  final top    = lift(scheme.surfaceVariant);
-  final bottom = lift(scheme.surface, white: .06);
-
-  // Pick text/icon color that actually contrasts with the blended bg.
-  final midBg = Color.lerp(top, bottom, 0.5)!;
-  final Brightness midBrightness = ThemeData.estimateBrightnessForColor(midBg);
-  final Color fg = (midBrightness == Brightness.dark)
-      ? Colors.white
-      : const Color(0xFF111827); // near-black for light backgrounds
-
-  return Container(
-    width: 220,
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: [top, bottom],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ),
-      border: Border(
-        right: BorderSide(color: scheme.outlineVariant.withOpacity(isDark ? .3 : 1)),
-      ),
-    ),
-    // Force tiles/icons/text to use the computed 'fg'
-    child: Theme(
-      data: theme.copyWith(
-        listTileTheme: ListTileThemeData(
-          iconColor: fg,
-          textColor: fg,
-          selectedColor: scheme.primary,
-          selectedTileColor: scheme.primary.withOpacity(isDark ? .16 : .10),
-        ),
-        iconTheme: IconThemeData(color: fg),
-        textTheme: theme.textTheme.apply(bodyColor: fg, displayColor: fg),
-      ),
-      child: SideBar(
-        width: 220,
-        onOpenAll: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ManageActionsPage()),
-          );
-        },
-      ),
-    ),
-  );
-}
-
+// Sidebar (unchanged styling)
+//Sidebar shell with dark-mode friendly gradient and contrast.
+ Widget buildSidebar(BuildContext context) { final theme = Theme.of(context); final scheme = theme.colorScheme; final isDark = theme.brightness == Brightness.dark; // Gently lift surfaces in dark mode so they’re not pitch black.
+  Color lift(Color base, {double white = .08}) => isDark ? Color.alphaBlend(Colors.white.withOpacity(white), base) : base; final top = lift(scheme.surfaceVariant); final bottom = lift(scheme.surface, white: .06); // Pick text/icon color that actually contrasts with the blended bg.
+   final midBg = Color.lerp(top, bottom, 0.5)!; final Brightness midBrightness = ThemeData.estimateBrightnessForColor(midBg); final Color fg = (midBrightness == Brightness.dark) ? Colors.white : const Color(0xFF111827); // near-black for light backgrounds 
+   return Container( width: 220, decoration: BoxDecoration( gradient: LinearGradient( colors: [top, bottom], begin: Alignment.topCenter, end: Alignment.bottomCenter, ), border: Border( right: BorderSide(color: scheme.outlineVariant.withOpacity(isDark ? .3 : 1)), ), ), // Force tiles/icons/text to use the computed 'fg' 
+   child: Theme( data: theme.copyWith( listTileTheme: ListTileThemeData( iconColor: fg, textColor: fg, selectedColor: scheme.primary, selectedTileColor: scheme.primary.withOpacity(isDark ? .16 : .10), ), iconTheme: IconThemeData(color: fg), textTheme: theme.textTheme.apply(bodyColor: fg, displayColor: fg), ), child: SideBar( width: 220, onOpenAll: () { Navigator.of(context).push( MaterialPageRoute(builder: (_) => const ManageActionsPage()), ); }, ), ), ); }
 class _MetricData {
   final String title;
   final String value;
@@ -465,7 +390,7 @@ class _MetricsGrid extends StatelessWidget {
         crossAxisCount: cols,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 1.9, // tighter like the mock
+        childAspectRatio: 1.9,
       ),
       itemBuilder: (_, i) => _MetricCard(data: metrics[i]),
     );
@@ -489,7 +414,6 @@ class _MetricCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(data.title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant)),
-                
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -503,12 +427,11 @@ class _MetricCard extends StatelessWidget {
                       ],
                     ],
                   ),
-            
                   if (data.badge != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
                         decoration: BoxDecoration(
                           color: (data.badgeColor ?? Colors.red).withOpacity(.12),
                           borderRadius: BorderRadius.circular(8),
@@ -572,7 +495,7 @@ class _DeltaText extends StatelessWidget {
   }
 }
 
-// ----- CHARTS ROW -----
+// ----- CHARTS ROW (placeholder visuals kept) -----
 class _ChartsRow extends StatelessWidget {
   const _ChartsRow();
 
@@ -584,8 +507,8 @@ class _ChartsRow extends StatelessWidget {
       title: 'Stock Movement (30 days)',
       filterLabel: 'Last 30 days',
       legends: [
-        _Legend(label: 'Stock In',  dotColor: Color(0xFF2E68FF)), // blue
-        _Legend(label: 'Stock Out', dotColor: Color(0xFFF04438)), // red
+        _Legend(label: 'Stock In',  dotColor: Color(0xFF2E68FF)),
+        _Legend(label: 'Stock Out', dotColor: Color(0xFFF04438)),
       ],
       placeholderTitle: 'Stock Movement Chart',
       placeholderSub: 'Area chart placeholder',
@@ -596,8 +519,8 @@ class _ChartsRow extends StatelessWidget {
       title: 'Sales vs Purchase (MTD)',
       filterLabel: 'This Month',
       legends: [
-        _Legend(label: 'Sales',    dotColor: Color(0xFF12B76A)), // green
-        _Legend(label: 'Purchase', dotColor: Color(0xFFFD853A)), // orange
+        _Legend(label: 'Sales',    dotColor: Color(0xFF12B76A)),
+        _Legend(label: 'Purchase', dotColor: Color(0xFFFD853A)),
       ],
       placeholderTitle: 'Sales vs Purchase Chart',
       placeholderSub: 'Bar chart placeholder',
@@ -616,7 +539,6 @@ class _Legend {
   const _Legend({required this.label, required this.dotColor});
 }
 
-// ----- CHART CARD -----
 class _ChartCard extends StatelessWidget {
   const _ChartCard({
     required this.title,
@@ -641,7 +563,6 @@ class _ChartCard extends StatelessWidget {
     return _SectionCard(
       header: _CardHeader(
         title: title,
-        // pill exactly like screenshot (calendar + text + chevron)
         trailing: _FilterPill(label: filterLabel),
       ),
       child: Column(
@@ -666,13 +587,7 @@ class _ChartCard extends StatelessWidget {
                         children: [
                           _LegendDot(color: e.dotColor),
                           const SizedBox(width: 8),
-                          Text(
-                            e.label,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
-                                ?.copyWith(color: scheme.onSurface),
-                          ),
+                          Text(e.label, style: Theme.of(context).textTheme.titleSmall?.copyWith(color: scheme.onSurface)),
                         ],
                       ))
                   .toList(),
@@ -683,7 +598,7 @@ class _ChartCard extends StatelessWidget {
     );
   }
 }
-// ----- PLACEHOLDER PANEL (big soft grey area) -----
+
 class _PlaceholderPanel extends StatelessWidget {
   const _PlaceholderPanel({
     required this.icon,
@@ -720,13 +635,7 @@ class _PlaceholderPanel extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-            ),
+            Text(subtitle, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
           ],
         ),
       ),
@@ -734,44 +643,58 @@ class _PlaceholderPanel extends StatelessWidget {
   }
 }
 
-// ----- LEGEND DOT -----
 class _LegendDot extends StatelessWidget {
   const _LegendDot({required this.color});
   final Color color;
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
+    return Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
   }
 }
+
 class _RecentActivityCard extends StatelessWidget {
-  const _RecentActivityCard();
+  const _RecentActivityCard({required this.moves, this.loading = false});
+  final List<RecentMoveVM> moves;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      header: const _CardHeader(
-        title: 'Recent Activity',
-        trailing: null,
-      ),
+      header: const _CardHeader(title: 'Recent Activity', trailing: null),
       child: Column(
-        children: const [
-          _ActivityItem(kind: 'IN', title: 'Wireless Headphones', sku: 'SKU-001', qty: 50, time: '2 hours ago'),
-          _ActivityItem(kind: 'OUT', title: 'USB Cable', sku: 'SKU-045', qty: 25, time: '3 hours ago'),
-          _ActivityItem(kind: 'IN', title: 'Laptop Stand', sku: 'SKU-012', qty: 20, time: '4 hours ago'),
-          _ActivityItem(kind: 'OUT', title: 'Mouse Pad', sku: 'SKU-089', qty: 15, time: '5 hours ago'),
-          _ActivityItem(kind: 'IN', title: 'Desk Lamp', sku: 'SKU-156', qty: 30, time: '6 hours ago'),
-          _ActivityItem(kind: 'OUT', title: 'Phone Stand', sku: 'SKU-203', qty: 12, time: '7 hours ago'),
+        children: [
+          if (loading && moves.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text('Loading...', style: Theme.of(context).textTheme.bodyMedium),
+            ),
+          if (!loading && moves.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text('No recent movements', style: Theme.of(context).textTheme.bodyMedium),
+            ),
+          for (final m in moves)
+            _ActivityItem(
+              kind: m.kind,
+              title: m.productName,
+              sku: m.sku,
+              qty: m.qty,
+              time: m.at == null ? '' : _ago(m.at!),
+            ),
         ],
       ),
     );
   }
+
+  String _ago(DateTime dt) {
+    final d = DateTime.now().difference(dt);
+    if (d.inMinutes < 1) return 'just now';
+    if (d.inMinutes < 60) return '${d.inMinutes} min ago';
+    if (d.inHours < 24) return '${d.inHours} hours ago';
+    return '${d.inDays} days ago';
+  }
 }
-// ----- FILTER PILL (calendar chip with chevron) -----
+
 class _FilterPill extends StatelessWidget {
   const _FilterPill({required this.label, this.onPressed});
   final String label;
@@ -790,10 +713,12 @@ class _FilterPill extends StatelessWidget {
       onPressed: onPressed ?? () {},
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(Icons.calendar_today_outlined, size: 18),
-          SizedBox(width: 8),
-          // label text injected below via LayoutBuilder
+        children: [
+          const Icon(Icons.calendar_today_outlined, size: 18),
+          const SizedBox(width: 8),
+          Text(label),
+          const SizedBox(width: 2),
+          const Icon(Icons.expand_more, size: 18),
         ],
       ),
     );
@@ -844,7 +769,8 @@ class _ActivityItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text('Qty: $qty', style: Theme.of(context).textTheme.titleSmall),
-                Text(time, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                if (time.isNotEmpty)
+                  Text(time, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
               ],
             ),
           ],
@@ -861,12 +787,13 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIn = kind.toUpperCase() == 'IN';
-    final bg = isIn ? const Color(0xFF101828) : const Color(0xFFF2F4F7);
-    final fg = isIn ? Colors.white : const Color(0xFF101828);
+    final isAdj = kind.toUpperCase() == 'ADJ';
+    final bg = isIn ? const Color(0xFF101828) : isAdj ? const Color(0xFF475569) : const Color(0xFFF2F4F7);
+    final fg = (isIn || isAdj) ? Colors.white : const Color(0xFF101828);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
-      child: Text(isIn ? 'IN' : 'OUT', style: TextStyle(color: fg, fontWeight: FontWeight.w700, letterSpacing: 0.2)),
+      child: Text(kind, style: TextStyle(color: fg, fontWeight: FontWeight.w700, letterSpacing: 0.2)),
     );
   }
 }
@@ -896,7 +823,6 @@ class _SectionCard extends StatelessWidget {
             if (header != null) ...[
               header!,
               const SizedBox(height: 12),
-              // No divider to match your second mock
               const SizedBox(height: 12),
             ],
             child,
@@ -923,6 +849,7 @@ class _CardHeader extends StatelessWidget {
     );
   }
 }
+
 class _HelpFab extends StatelessWidget {
   const _HelpFab();
 
@@ -932,14 +859,13 @@ class _HelpFab extends StatelessWidget {
       heroTag: 'helpFab',
       onPressed: () => _openMenu(context),
       shape: const CircleBorder(),
-      backgroundColor: Colors.black,       // black circle like the mock
-      foregroundColor: Colors.white,       // white “?”
+      backgroundColor: Colors.black,
+      foregroundColor: Colors.white,
       child: const Icon(Icons.question_mark_rounded),
     );
   }
 
   Future<void> _openMenu(BuildContext context) async {
-    // Find this FAB’s on-screen rect to anchor the popup menu.
     final button = context.findRenderObject() as RenderBox;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -951,52 +877,20 @@ class _HelpFab extends StatelessWidget {
       Offset.zero & overlay.size,
     );
 
-    final selected = await showMenu<String>(
+    await showMenu<String>(
       context: context,
       position: pos,
-      color: const Color(0xFF111217), // dark surface like screenshot
+      color: const Color(0xFF111217),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      items: [
-        _item('help',        'Help Center'),
-        _item('yt',          'YouTube videos'),
-        _item('release',     'Release notes'),
-        _item('legal',       'Legal summary'),
-        _item('abuse',       'Report abuse'),
-        const PopupMenuDivider(),
-        _item('lang',        'Change language...'),
+      items: const [
+        PopupMenuItem<String>(value: 'help', height: 44, child: Text('Help Center', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, letterSpacing: 0.1))),
+        PopupMenuItem<String>(value: 'yt', height: 44, child: Text('YouTube videos', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, letterSpacing: 0.1))),
+        PopupMenuItem<String>(value: 'release', height: 44, child: Text('Release notes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, letterSpacing: 0.1))),
+        PopupMenuItem<String>(value: 'legal', height: 44, child: Text('Legal summary', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, letterSpacing: 0.1))),
+        PopupMenuItem<String>(value: 'abuse', height: 44, child: Text('Report abuse', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, letterSpacing: 0.1))),
+        PopupMenuDivider(),
+        PopupMenuItem<String>(value: 'lang', height: 44, child: Text('Change language...', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, letterSpacing: 0.1))),
       ],
-    );
-
-    if (selected == null) return;
-
-    // Hook up real navigation here. For now: snackbars as placeholders.
-    final msg = switch (selected) {
-      'help'    => 'Open Help Center',
-      'yt'      => 'Open YouTube videos',
-      'release' => 'Open Release notes',
-      'legal'   => 'Open Legal summary',
-      'abuse'   => 'Report abuse',
-      'lang'    => 'Change language',
-      _         => '',
-    };
-    if (msg.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-    }
-  }
-
-  PopupMenuItem<String> _item(String value, String label) {
-    // White text on dark menu, generous hit target.
-    return PopupMenuItem<String>(
-      value: value,
-      height: 44,
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.1,
-        ),
-      ),
     );
   }
 }
