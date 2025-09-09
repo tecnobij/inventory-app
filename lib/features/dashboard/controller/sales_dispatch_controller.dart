@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
-import 'package:collection/collection.dart';
 
 import 'package:bhago/app/data/local_database.dart';
 import 'package:bhago/features/dashboard/controller/settings_controller.dart';
 
-/// ------------ View Models ------------
+/// ---------------- View Models ----------------
 class SalesOrderVM {
   final int id;
   final DateTime? date;
@@ -49,7 +48,7 @@ class InvoiceVM {
   String get soNo  => soId == null ? '-' : 'SO-${soId!.toString().padLeft(6, '0')}';
 }
 
-/// ------------ Create SO input ------------
+/// ---------------- Create SO input ----------------
 class SoItemInput {
   final int productId;
   final int qty;
@@ -61,7 +60,7 @@ class SoItemInput {
   });
 }
 
-/// ------------ Controller ------------
+/// ---------------- Controller ----------------
 class SalesDispatchController extends ChangeNotifier {
   final AppDatabase db;
   final SettingsProvider settings;
@@ -88,7 +87,38 @@ class SalesDispatchController extends ChangeNotifier {
   bool get ready => settings.loaded && settings.onboarded && settings.orgId != null;
   int get orgId => settings.orgId!;
 
-  // ---------- Streams ----------
+  int? _defaultWarehouseIdCache;
+  int? get defaultWarehouseId => _defaultWarehouseIdCache;
+
+  /// Pick & cache the first active warehouse (or any if none marked active).
+  Future<int?> ensureDefaultWarehouse() async {
+    if (_defaultWarehouseIdCache != null) return _defaultWarehouseIdCache;
+
+    // Prefer active
+    final active = await (db.select(db.warehouses)
+          ..where((t) => t.orgId.equals(orgId) &
+              ((t.isActive.isNull()) | t.isActive.equals(1)))
+          ..limit(1))
+        .getSingleOrNull();
+
+    if (active != null) {
+      _defaultWarehouseIdCache = active.id;
+      return _defaultWarehouseIdCache;
+    }
+
+    // Fallback: any warehouse for this org
+    final anyWh = await (db.select(db.warehouses)
+          ..where((t) => t.orgId.equals(orgId))
+          ..limit(1))
+        .getSingleOrNull();
+
+    _defaultWarehouseIdCache = anyWh?.id;
+    return _defaultWarehouseIdCache;
+  }
+
+  // ---------------- Streams ----------------
+
+  /// Watch Sales Orders (kept as raw SQL so we can project counts efficiently).
   Stream<List<SalesOrderVM>> watchSalesOrders() {
     final q = _soQuery;
     final like = '%$q%';
@@ -124,12 +154,15 @@ class SalesDispatchController extends ChangeNotifier {
         .watch()
         .map((rows) {
           return rows.map((r) {
+            // status comes out as the stored int; map to enum safely
+            final int? statusIdx = r.readNullable<int>('status');
+            final SoStatus? status =
+                statusIdx == null ? null : SoStatus.values[statusIdx];
+
             return SalesOrderVM(
               id: r.read<int>('id'),
               date: r.readNullable<DateTime>('so_date'),
-              status: r.readNullable<int>('status') == null
-                  ? null
-                  : SoStatus.values[r.read<int>('status')],
+              status: status,
               totalMinor: r.readNullable<int>('total_minor') ?? 0,
               customer: r.read<String>('party_name'),
               warehouse: r.read<String>('wh_name'),
@@ -139,6 +172,7 @@ class SalesDispatchController extends ChangeNotifier {
         });
   }
 
+  /// Watch Invoices (raw SQL + mapping int -> enum).
   Stream<List<InvoiceVM>> watchInvoices() {
     final q = _invQuery;
     final like = '%$q%';
@@ -174,12 +208,14 @@ class SalesDispatchController extends ChangeNotifier {
         .watch()
         .map((rows) {
           return rows.map((r) {
+            final int? statusIdx = r.readNullable<int>('status');
+            final InvoiceStatus? status =
+                statusIdx == null ? null : InvoiceStatus.values[statusIdx];
+
             return InvoiceVM(
               id: r.read<int>('id'),
               date: r.readNullable<DateTime>('invoice_date'),
-              status: r.readNullable<int>('status') == null
-                  ? null
-                  : InvoiceStatus.values[r.read<int>('status')],
+              status: status,
               soId: r.readNullable<int>('sales_order_id'),
               totalMinor: r.readNullable<int>('total_minor') ?? 0,
               customer: r.read<String>('party_name'),
@@ -188,42 +224,78 @@ class SalesDispatchController extends ChangeNotifier {
         });
   }
 
-  // ---------- Dropdown data ----------
+  // ---------------- Dropdown / helpers ----------------
+
+  /// Get only customers (Customer or Both).
+  /// We filter by org in SQL, and filter the enum in Dart to avoid enum/int
+  /// mismatches if your generated code is temporarily stale.
   Future<List<Party>> fetchCustomers() async {
-    final q = db.select(db.parties)
-      ..where((t) => t.orgId.equals(orgId));
-    // If you want only customers & both:
-    // ..where((t) => t.orgId.equals(orgId) & (t.partyType.equals(PartyType.customer) | t.partyType.equals(PartyType.both)));
-    return q.get();
+    final list = await (db.select(db.parties)
+          ..where((t) => t.orgId.equals(orgId)))
+        .get();
+
+    return list
+        .where((p) =>
+            p.partyType == PartyType.customer ||
+            p.partyType == PartyType.both)
+        .toList();
   }
 
-  Future<List<Warehouse>> fetchWarehouses() async {
-    final q = db.select(db.warehouses)..where((t) => t.orgId.equals(orgId));
-    return q.get();
-  }
-
-  Future<List<Product>> fetchProducts() async {
-    final q = db.select(db.products)..where((t) => t.orgId.equals(orgId) & ((t.isActive.isNull()) | t.isActive.equals(1)));
+  Future<List<Product>> fetchProducts() {
+    final q = db.select(db.products)
+      ..where((t) =>
+          t.orgId.equals(orgId) &
+          ((t.isActive.isNull()) | t.isActive.equals(1)));
     return q.get();
   }
 
   Future<int?> defaultGstPct() async {
-    final row = await (db.select(db.appSettings)..where((t) => t.orgId.equals(orgId))).getSingleOrNull();
+    final row = await (db.select(db.appSettings)
+          ..where((t) => t.orgId.equals(orgId)))
+        .getSingleOrNull();
     return row?.defaultGstPct;
   }
 
-  // ---------- Create Sales Order ----------
+  /// Add customer with name, phone, farmName, address.
+  Future<Party> addCustomer({
+    required String name,
+    String? phone,
+    String? farmName,
+    String? address,
+    String? email,
+    String? gstin,
+  }) async {
+    final id = await db.into(db.parties).insert(
+          PartiesCompanion.insert(
+            orgId: orgId,
+            name: name,
+            partyType: PartyType.customer, // ✅ enum (NOT .index)
+            phone: drift.Value(phone),
+            email: drift.Value(email),
+            gstin: drift.Value(gstin),
+            address: drift.Value(address),
+            farmName: drift.Value(farmName),
+            createdAt: drift.Value(DateTime.now()),
+            updatedAt: drift.Value(DateTime.now()),
+          ),
+        );
+    return (await (db.select(db.parties)..where((t) => t.id.equals(id))).getSingle());
+  }
+
+  // ---------------- Create Sales Order ----------------
+
   Future<int> createSalesOrder({
     required int partyId,
-    required int warehouseId,
+    required int warehouseId, // UI passes ensureDefaultWarehouse()
     required DateTime soDate,
     required List<SoItemInput> items,
   }) async {
     assert(items.isNotEmpty, 'At least one item required');
 
-    // Map productId -> Product (for gst, etc.)
+    // Pull products to compute GST per line
     final ids = items.map((e) => e.productId).toSet().toList();
-    final prods = await (db.select(db.products)..where((t) => t.id.isIn(ids))).get();
+    final prods =
+        await (db.select(db.products)..where((t) => t.id.isIn(ids))).get();
     final prodMap = {for (final p in prods) p.id: p};
 
     final defGst = await defaultGstPct() ?? 0;
@@ -247,11 +319,12 @@ class SalesDispatchController extends ChangeNotifier {
               partyId: partyId,
               warehouseId: warehouseId,
               soDate: drift.Value(soDate),
-              status: const drift.Value(SoStatus.confirmed),
+              status: const drift.Value(SoStatus.confirmed), // ✅ enum (NOT .index)
               subtotalMinor: drift.Value(subtotal),
               taxMinor: drift.Value(tax),
               totalMinor: drift.Value(total),
               createdAt: drift.Value(DateTime.now()),
+              updatedAt: drift.Value(DateTime.now()),
             ),
           );
 
@@ -266,6 +339,7 @@ class SalesDispatchController extends ChangeNotifier {
                 unitPriceMinor: it.unitPriceMinor,
                 lineTotalMinor: line,
                 createdAt: drift.Value(DateTime.now()),
+                updatedAt: drift.Value(DateTime.now()),
               ),
             );
       }
@@ -274,7 +348,7 @@ class SalesDispatchController extends ChangeNotifier {
     });
   }
 
-  // Helpers
+  // ---------------- Utils ----------------
   String inr(int minor) => '₹${_comma(minor)}';
   String _comma(int v) {
     final s = v.toString();

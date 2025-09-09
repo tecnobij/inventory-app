@@ -61,23 +61,30 @@ class Warehouses extends Table {
   DateTimeColumn get updatedAt => dateTime().nullable().named('updated_at')();
 }
 
+// lib/app/data/local_database.dart
+// ...
 class Parties extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get orgId => integer()
       .named('org_id')
-      .customConstraint(
-        'REFERENCES organizations(id) ON UPDATE CASCADE ON DELETE RESTRICT',
-      )();
+      .customConstraint('REFERENCES organizations(id) ON UPDATE CASCADE ON DELETE RESTRICT')();
   TextColumn get name => text().withLength(min: 1, max: 120).named('name')();
   TextColumn get phone => text().nullable().named('phone')();
   TextColumn get email => text().nullable().named('email')();
   TextColumn get gstin => text().nullable().named('gstin')();
+
+  // ✅ new fields
+  TextColumn get address => text().nullable().named('address')();
+  TextColumn get farmName => text().nullable().named('farm_name')();
+
   IntColumn get partyType => integer()
       .map(const EnumIndexConverter<PartyType>(PartyType.values))
       .named('party_type')();
   DateTimeColumn get createdAt => dateTime().nullable().named('created_at')();
   DateTimeColumn get updatedAt => dateTime().nullable().named('updated_at')();
 }
+
+
 
 class Products extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -417,9 +424,9 @@ class FavoriteActions extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  /// Initial release of your finalized schema
+  // ⬆️ bump when you change tables/columns
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -427,17 +434,20 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
         },
         onUpgrade: (m, from, to) async {
-          // Add step-wise migrations here as you evolve:
-          // if (from == 1) {
-          //   await m.alterTable(TableMigration(numberingPatterns,
-          //     columnTransformer: {
-          //       // example changes
-          //     },
-          //   ));
-          //   await customStatement(
-          //     'CREATE UNIQUE INDEX IF NOT EXISTS ux_numbering_org_doctype ON numbering_patterns(org_id, doc_type)'
-          //   );
-          // }
+          // v1 -> v2: add nullable columns to parties
+          if (from < 2) {
+            await m.alterTable(TableMigration(
+              parties,
+              // These must exist as columns on your Parties table class
+              newColumns: [parties.address, parties.farmName],
+            ));
+
+            // (Optional) If you want a unique index on numbering patterns per org
+            // await customStatement(
+            //   'CREATE UNIQUE INDEX IF NOT EXISTS ux_numbering_org_doctype '
+            //   'ON numbering_patterns(org_id, doc_type)'
+            // );
+          }
         },
         beforeOpen: (details) async {
           // Enforce FK integrity in SQLite
@@ -445,6 +455,7 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 }
+
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {

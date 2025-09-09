@@ -1127,6 +1127,28 @@ class $PartiesTable extends Parties with TableInfo<$PartiesTable, Party> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _addressMeta = const VerificationMeta(
+    'address',
+  );
+  @override
+  late final GeneratedColumn<String> address = GeneratedColumn<String>(
+    'address',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _farmNameMeta = const VerificationMeta(
+    'farmName',
+  );
+  @override
+  late final GeneratedColumn<String> farmName = GeneratedColumn<String>(
+    'farm_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   late final GeneratedColumnWithTypeConverter<PartyType, int> partyType =
       GeneratedColumn<int>(
@@ -1166,6 +1188,8 @@ class $PartiesTable extends Parties with TableInfo<$PartiesTable, Party> {
     phone,
     email,
     gstin,
+    address,
+    farmName,
     partyType,
     createdAt,
     updatedAt,
@@ -1219,6 +1243,18 @@ class $PartiesTable extends Parties with TableInfo<$PartiesTable, Party> {
         gstin.isAcceptableOrUnknown(data['gstin']!, _gstinMeta),
       );
     }
+    if (data.containsKey('address')) {
+      context.handle(
+        _addressMeta,
+        address.isAcceptableOrUnknown(data['address']!, _addressMeta),
+      );
+    }
+    if (data.containsKey('farm_name')) {
+      context.handle(
+        _farmNameMeta,
+        farmName.isAcceptableOrUnknown(data['farm_name']!, _farmNameMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1264,6 +1300,14 @@ class $PartiesTable extends Parties with TableInfo<$PartiesTable, Party> {
         DriftSqlType.string,
         data['${effectivePrefix}gstin'],
       ),
+      address: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}address'],
+      ),
+      farmName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}farm_name'],
+      ),
       partyType: $PartiesTable.$converterpartyType.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.int,
@@ -1297,6 +1341,8 @@ class Party extends DataClass implements Insertable<Party> {
   final String? phone;
   final String? email;
   final String? gstin;
+  final String? address;
+  final String? farmName;
   final PartyType partyType;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -1307,6 +1353,8 @@ class Party extends DataClass implements Insertable<Party> {
     this.phone,
     this.email,
     this.gstin,
+    this.address,
+    this.farmName,
     required this.partyType,
     this.createdAt,
     this.updatedAt,
@@ -1325,6 +1373,12 @@ class Party extends DataClass implements Insertable<Party> {
     }
     if (!nullToAbsent || gstin != null) {
       map['gstin'] = Variable<String>(gstin);
+    }
+    if (!nullToAbsent || address != null) {
+      map['address'] = Variable<String>(address);
+    }
+    if (!nullToAbsent || farmName != null) {
+      map['farm_name'] = Variable<String>(farmName);
     }
     {
       map['party_type'] = Variable<int>(
@@ -1354,6 +1408,12 @@ class Party extends DataClass implements Insertable<Party> {
       gstin: gstin == null && nullToAbsent
           ? const Value.absent()
           : Value(gstin),
+      address: address == null && nullToAbsent
+          ? const Value.absent()
+          : Value(address),
+      farmName: farmName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(farmName),
       partyType: Value(partyType),
       createdAt: createdAt == null && nullToAbsent
           ? const Value.absent()
@@ -1376,6 +1436,8 @@ class Party extends DataClass implements Insertable<Party> {
       phone: serializer.fromJson<String?>(json['phone']),
       email: serializer.fromJson<String?>(json['email']),
       gstin: serializer.fromJson<String?>(json['gstin']),
+      address: serializer.fromJson<String?>(json['address']),
+      farmName: serializer.fromJson<String?>(json['farmName']),
       partyType: serializer.fromJson<PartyType>(json['partyType']),
       createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
@@ -1391,6 +1453,8 @@ class Party extends DataClass implements Insertable<Party> {
       'phone': serializer.toJson<String?>(phone),
       'email': serializer.toJson<String?>(email),
       'gstin': serializer.toJson<String?>(gstin),
+      'address': serializer.toJson<String?>(address),
+      'farmName': serializer.toJson<String?>(farmName),
       'partyType': serializer.toJson<PartyType>(partyType),
       'createdAt': serializer.toJson<DateTime?>(createdAt),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
@@ -1404,6 +1468,8 @@ class Party extends DataClass implements Insertable<Party> {
     Value<String?> phone = const Value.absent(),
     Value<String?> email = const Value.absent(),
     Value<String?> gstin = const Value.absent(),
+    Value<String?> address = const Value.absent(),
+    Value<String?> farmName = const Value.absent(),
     PartyType? partyType,
     Value<DateTime?> createdAt = const Value.absent(),
     Value<DateTime?> updatedAt = const Value.absent(),
@@ -1414,6 +1480,8 @@ class Party extends DataClass implements Insertable<Party> {
     phone: phone.present ? phone.value : this.phone,
     email: email.present ? email.value : this.email,
     gstin: gstin.present ? gstin.value : this.gstin,
+    address: address.present ? address.value : this.address,
+    farmName: farmName.present ? farmName.value : this.farmName,
     partyType: partyType ?? this.partyType,
     createdAt: createdAt.present ? createdAt.value : this.createdAt,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
@@ -1426,6 +1494,8 @@ class Party extends DataClass implements Insertable<Party> {
       phone: data.phone.present ? data.phone.value : this.phone,
       email: data.email.present ? data.email.value : this.email,
       gstin: data.gstin.present ? data.gstin.value : this.gstin,
+      address: data.address.present ? data.address.value : this.address,
+      farmName: data.farmName.present ? data.farmName.value : this.farmName,
       partyType: data.partyType.present ? data.partyType.value : this.partyType,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -1441,6 +1511,8 @@ class Party extends DataClass implements Insertable<Party> {
           ..write('phone: $phone, ')
           ..write('email: $email, ')
           ..write('gstin: $gstin, ')
+          ..write('address: $address, ')
+          ..write('farmName: $farmName, ')
           ..write('partyType: $partyType, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -1456,6 +1528,8 @@ class Party extends DataClass implements Insertable<Party> {
     phone,
     email,
     gstin,
+    address,
+    farmName,
     partyType,
     createdAt,
     updatedAt,
@@ -1470,6 +1544,8 @@ class Party extends DataClass implements Insertable<Party> {
           other.phone == this.phone &&
           other.email == this.email &&
           other.gstin == this.gstin &&
+          other.address == this.address &&
+          other.farmName == this.farmName &&
           other.partyType == this.partyType &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
@@ -1482,6 +1558,8 @@ class PartiesCompanion extends UpdateCompanion<Party> {
   final Value<String?> phone;
   final Value<String?> email;
   final Value<String?> gstin;
+  final Value<String?> address;
+  final Value<String?> farmName;
   final Value<PartyType> partyType;
   final Value<DateTime?> createdAt;
   final Value<DateTime?> updatedAt;
@@ -1492,6 +1570,8 @@ class PartiesCompanion extends UpdateCompanion<Party> {
     this.phone = const Value.absent(),
     this.email = const Value.absent(),
     this.gstin = const Value.absent(),
+    this.address = const Value.absent(),
+    this.farmName = const Value.absent(),
     this.partyType = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -1503,6 +1583,8 @@ class PartiesCompanion extends UpdateCompanion<Party> {
     this.phone = const Value.absent(),
     this.email = const Value.absent(),
     this.gstin = const Value.absent(),
+    this.address = const Value.absent(),
+    this.farmName = const Value.absent(),
     required PartyType partyType,
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -1516,6 +1598,8 @@ class PartiesCompanion extends UpdateCompanion<Party> {
     Expression<String>? phone,
     Expression<String>? email,
     Expression<String>? gstin,
+    Expression<String>? address,
+    Expression<String>? farmName,
     Expression<int>? partyType,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -1527,6 +1611,8 @@ class PartiesCompanion extends UpdateCompanion<Party> {
       if (phone != null) 'phone': phone,
       if (email != null) 'email': email,
       if (gstin != null) 'gstin': gstin,
+      if (address != null) 'address': address,
+      if (farmName != null) 'farm_name': farmName,
       if (partyType != null) 'party_type': partyType,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -1540,6 +1626,8 @@ class PartiesCompanion extends UpdateCompanion<Party> {
     Value<String?>? phone,
     Value<String?>? email,
     Value<String?>? gstin,
+    Value<String?>? address,
+    Value<String?>? farmName,
     Value<PartyType>? partyType,
     Value<DateTime?>? createdAt,
     Value<DateTime?>? updatedAt,
@@ -1551,6 +1639,8 @@ class PartiesCompanion extends UpdateCompanion<Party> {
       phone: phone ?? this.phone,
       email: email ?? this.email,
       gstin: gstin ?? this.gstin,
+      address: address ?? this.address,
+      farmName: farmName ?? this.farmName,
       partyType: partyType ?? this.partyType,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -1578,6 +1668,12 @@ class PartiesCompanion extends UpdateCompanion<Party> {
     if (gstin.present) {
       map['gstin'] = Variable<String>(gstin.value);
     }
+    if (address.present) {
+      map['address'] = Variable<String>(address.value);
+    }
+    if (farmName.present) {
+      map['farm_name'] = Variable<String>(farmName.value);
+    }
     if (partyType.present) {
       map['party_type'] = Variable<int>(
         $PartiesTable.$converterpartyType.toSql(partyType.value),
@@ -1601,6 +1697,8 @@ class PartiesCompanion extends UpdateCompanion<Party> {
           ..write('phone: $phone, ')
           ..write('email: $email, ')
           ..write('gstin: $gstin, ')
+          ..write('address: $address, ')
+          ..write('farmName: $farmName, ')
           ..write('partyType: $partyType, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -11565,6 +11663,8 @@ typedef $$PartiesTableCreateCompanionBuilder =
       Value<String?> phone,
       Value<String?> email,
       Value<String?> gstin,
+      Value<String?> address,
+      Value<String?> farmName,
       required PartyType partyType,
       Value<DateTime?> createdAt,
       Value<DateTime?> updatedAt,
@@ -11577,6 +11677,8 @@ typedef $$PartiesTableUpdateCompanionBuilder =
       Value<String?> phone,
       Value<String?> email,
       Value<String?> gstin,
+      Value<String?> address,
+      Value<String?> farmName,
       Value<PartyType> partyType,
       Value<DateTime?> createdAt,
       Value<DateTime?> updatedAt,
@@ -11709,6 +11811,16 @@ class $$PartiesTableFilterComposer
 
   ColumnFilters<String> get gstin => $composableBuilder(
     column: $table.gstin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get farmName => $composableBuilder(
+    column: $table.farmName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11886,6 +11998,16 @@ class $$PartiesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get farmName => $composableBuilder(
+    column: $table.farmName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get partyType => $composableBuilder(
     column: $table.partyType,
     builder: (column) => ColumnOrderings(column),
@@ -11948,6 +12070,12 @@ class $$PartiesTableAnnotationComposer
 
   GeneratedColumn<String> get gstin =>
       $composableBuilder(column: $table.gstin, builder: (column) => column);
+
+  GeneratedColumn<String> get address =>
+      $composableBuilder(column: $table.address, builder: (column) => column);
+
+  GeneratedColumn<String> get farmName =>
+      $composableBuilder(column: $table.farmName, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<PartyType, int> get partyType =>
       $composableBuilder(column: $table.partyType, builder: (column) => column);
@@ -12122,6 +12250,8 @@ class $$PartiesTableTableManager
                 Value<String?> phone = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> gstin = const Value.absent(),
+                Value<String?> address = const Value.absent(),
+                Value<String?> farmName = const Value.absent(),
                 Value<PartyType> partyType = const Value.absent(),
                 Value<DateTime?> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
@@ -12132,6 +12262,8 @@ class $$PartiesTableTableManager
                 phone: phone,
                 email: email,
                 gstin: gstin,
+                address: address,
+                farmName: farmName,
                 partyType: partyType,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -12144,6 +12276,8 @@ class $$PartiesTableTableManager
                 Value<String?> phone = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> gstin = const Value.absent(),
+                Value<String?> address = const Value.absent(),
+                Value<String?> farmName = const Value.absent(),
                 required PartyType partyType,
                 Value<DateTime?> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
@@ -12154,6 +12288,8 @@ class $$PartiesTableTableManager
                 phone: phone,
                 email: email,
                 gstin: gstin,
+                address: address,
+                farmName: farmName,
                 partyType: partyType,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
