@@ -77,6 +77,7 @@ class _SalesOrdersTab extends StatefulWidget {
 
 class _SalesOrdersTabState extends State<_SalesOrdersTab> {
   final _q = TextEditingController();
+ // local-only preview after "Confirm"
 
   @override
   void initState() {
@@ -541,6 +542,8 @@ class _InvCard extends StatelessWidget {
 /// ------------------- Create SO Tab -------------------
 
 
+
+
 class CreateSoTab extends StatefulWidget {
   final bool isMobile;
   const CreateSoTab({super.key, required this.isMobile});
@@ -585,8 +588,12 @@ class _CreateSoTabState extends State<CreateSoTab> {
   @override
   Widget build(BuildContext context) {
     final ctrl = context.watch<SalesDispatchController>();
-    if (!ctrl.ready) return const Center(child: Text('Finish onboarding to create Sales Orders.'));
-    if (_loading)     return const Center(child: CircularProgressIndicator());
+    if (!ctrl.ready) {
+      return const Center(child: Text('Finish onboarding to create Sales Orders.'));
+    }
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     final isMobile = widget.isMobile;
 
@@ -599,6 +606,8 @@ class _CreateSoTabState extends State<CreateSoTab> {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
     );
 
+    final selParty = _partyId == null ? null : _customers.firstWhere((p) => p.id == _partyId, orElse: () => _customers.first);
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 12 : 16),
       child: Form(
@@ -609,74 +618,87 @@ class _CreateSoTabState extends State<CreateSoTab> {
             Text('Create Sales Order', style: TextStyle(fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.bold)),
             SizedBox(height: isMobile ? 16 : 24),
 
-            // Customer + Add Customer + Date (no explicit warehouse selection)
-            isMobile
-                ? Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              value: _partyId,
-                              items: _customers
-                                  .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
-                                  .toList(),
-                              onChanged: (v) => setState(() => _partyId = v),
-                              validator: (v) => v == null ? 'Select customer' : null,
-                              decoration: _box('Customer *'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            onPressed: _openAddCustomer,
-                            icon: const Icon(Icons.person_add_alt_1),
-                            label: const Text('Add'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _dateField(context, _box),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<int>(
-                                value: _partyId,
-                                items: _customers
-                                    .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
-                                    .toList(),
-                                onChanged: (v) => setState(() => _partyId = v),
-                                validator: (v) => v == null ? 'Select customer' : null,
-                                decoration: _box('Customer *'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            OutlinedButton.icon(
-                              onPressed: _openAddCustomer,
-                              icon: const Icon(Icons.person_add_alt_1),
-                              label: const Text('Add Customer'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(child: _dateField(context, _box)),
-                    ],
-                  ),
+            // Customer + Add Customer + Date (NO warehouse selection)
+ 
+
+ isMobile
+    ? Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: CustomerPickerFormField(
+                  customers: _customers,
+                  initialValue: _partyId,
+                  onChanged: (v) => setState(() => _partyId = v),
+                  labelText: '',
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _openAddCustomer,
+                icon: const Icon(Icons.person_add_alt_1),
+                label: const Text('Add'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+         if (_partyId != null && selParty != null) _CustomerMiniCard(
+  party: _draftParty ?? selParty,   // <- prefer draft
+  onEdit: _openEditCustomer,
+),
+          const SizedBox(height: 12),
+          _dateField(context, _box), // ✅ date field restored on mobile
+        ],
+      )
+    : Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                     Expanded(
+                child: CustomerPickerFormField(
+                  customers: _customers,
+                  initialValue: _partyId,
+                  onChanged: (v) => setState(() => _partyId = v),
+                  labelText: '',
+                ),
+              ),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: _openAddCustomer,
+                      icon: const Icon(Icons.person_add_alt_1),
+                      label: const Text('Add Customer'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (_partyId != null) _CustomerMiniCard(
+                  party: selParty!,
+                  onEdit: _openEditCustomer,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(child: _dateField(context, _box)), // already present on desktop
+        ],
+      ),
+
 
             const SizedBox(height: 24),
 
+            // Line items with product GST, live totals
             _LineItemsSection(
               rows: _rows,
               products: _products,
               onAddRow: () => setState(() => _rows.add(_LineItemRow())),
               onRemoveRow: (i) => setState(() => _rows.removeAt(i)),
-              onChanged: () => setState(() {}), // live totals
+              onChanged: () => setState(() {}),
             ),
 
             const SizedBox(height: 24),
@@ -692,7 +714,6 @@ class _CreateSoTabState extends State<CreateSoTab> {
                   if (_defaultWarehouseId == null) { _snack(context, 'No default warehouse configured'); return; }
                   if (_partyId == null) { _snack(context, 'Select customer'); return; }
 
-                  // Build items + compute totals
                   final items = <SoItemInput>[];
                   int subtotal = 0, tax = 0, total = 0;
                   for (final r in _rows) {
@@ -702,26 +723,25 @@ class _CreateSoTabState extends State<CreateSoTab> {
                     items.add(SoItemInput(
                       productId: r.productId!, qty: r.qty!, unitPriceMinor: r.unitPriceMinor!,
                     ));
-                    final net = r.qty! * r.unitPriceMinor!;
-                    final gst = r.gstPct ?? 0;
-                    final t   = (net * gst / 100).round();
-                    subtotal += net; tax += t;
+                    final lineNet = r.qty! * r.unitPriceMinor!;
+                    final gstPct  = r.gstPct ?? 0;
+                    final t       = (lineNet * gstPct / 100).round();
+                    subtotal += lineNet; tax += t;
                   }
                   total = subtotal + tax;
 
                   final ctrl = context.read<SalesDispatchController>();
+                 final choice = await showDialog<_PaymentChoice>(
+  context: context,
+  barrierDismissible: false,
+  builder: (_) => _PaymentDialog(
+    ctrl: ctrl,                       // <-- pass it
+    partyId: _partyId!,
+    orderTotalMinor: total,
+  ),
+);
 
-                  // 🔴 pass the controller into the dialog (NO Provider read inside dialog)
-                  final choice = await showDialog<_PaymentChoice>(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (_) => _PaymentDialog(
-                      ctrl: ctrl,
-                      partyId: _partyId!,
-                      orderTotalMinor: total,
-                    ),
-                  );
-                  if (choice == null) return; // cancelled
+                  if (choice == null) return;
 
                   // Create SO
                   final soId = await ctrl.createSalesOrder(
@@ -731,7 +751,7 @@ class _CreateSoTabState extends State<CreateSoTab> {
                     items: items,
                   );
 
-                  // If cash, insert immediate payment
+                  // If cash, record payment
                   if (choice.mode == PaymentMode.cash) {
                     final amt = (choice.cashAmountMinor ?? 0);
                     if (amt > 0) {
@@ -745,16 +765,19 @@ class _CreateSoTabState extends State<CreateSoTab> {
                       );
                     }
                   }
-
                   if (!mounted) return;
                   _snack(context, 'Sales Order $soId created');
 
-                  // 👉 push details page and PASS ctrl again (avoid provider scope issues)
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => SalesOrderDetailsPage(ctrl: ctrl, soId: soId),
-                    ),
-                  );
+                  // Go to details page (shows all transactions + balances)
+                Navigator.of(context).push(
+  MaterialPageRoute(
+    builder: (_) => ChangeNotifierProvider.value(
+      value: context.read<SalesDispatchController>(),    // reuse existing instance
+      child: SalesOrderDetailsPage(soId: soId),
+    ),
+  ),
+);
+
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
@@ -772,7 +795,6 @@ class _CreateSoTabState extends State<CreateSoTab> {
   }
 
   Future<void> _openAddCustomer() async {
-    // pass controller into dialog (we already fixed this earlier)
     final ctrl = context.read<SalesDispatchController>();
     final result = await showDialog<Party>(
       context: context,
@@ -788,6 +810,39 @@ class _CreateSoTabState extends State<CreateSoTab> {
       _snack(context, 'Customer added');
     }
   }
+Party? _draftParty;
+Party? _draftCustomerOverride; // shows unsaved edits in UI (optional)
+
+
+
+
+Future<void> _openEditCustomer() async {
+  final ctrl = context.read<SalesDispatchController>();
+  // pick current displayed party (draft if exists, else selected)
+  final base = _draftCustomerOverride ?? _customers.firstWhere((p) => p.id == _partyId);
+  final res = await showDialog<EditCustomerResult>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _EditCustomerDialog(ctrl: ctrl, party: base),
+  );
+  if (res == null) return;
+
+  if (res.saved) {
+  // persisted -> refresh and clear the draft
+  final refreshed = await ctrl.fetchCustomers();
+  setState(() {
+    _customers = refreshed;
+    _draftCustomerOverride = null;
+  });
+  ctrl.clearPartyDraft(res.party.id);        // <— clear in controller too
+  _snack(context, 'Customer updated');
+} else {
+  // local only -> keep draft both locally and in controller
+  setState(() => _draftCustomerOverride = res.party);
+  ctrl.setPartyDraft(res.party);             // <— makes it available app-wide
+  _snack(context, 'Using local changes (not saved)');
+}
+}
 
   Widget _dateField(BuildContext context, InputDecoration Function(String) box) {
     return TextFormField(
@@ -815,8 +870,49 @@ void _snack(BuildContext context, String msg) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 }
 
-/* ---------------- Add Customer dialog (receives ctrl) ---------------- */
+/// ---------------- Customer mini card + edit ----------------
+class _CustomerMiniCard extends StatelessWidget {
+  final Party party;
+  final VoidCallback onEdit;
+  const _CustomerMiniCard({required this.party, required this.onEdit});
 
+  @override
+  Widget build(BuildContext context) {
+    Widget row(String k, String v) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(children: [
+        SizedBox(width: 72, child: Text(k, style: TextStyle(color: Colors.grey.shade600, fontSize: 12))),
+        Expanded(child: Text(v, style: const TextStyle(fontSize: 13))),
+      ]),
+    );
+
+    return Card(
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Text('Customer Details', style: TextStyle(fontWeight: FontWeight.w700)),
+            const Spacer(),
+            TextButton.icon(onPressed: onEdit, icon: const Icon(Icons.edit, size: 16), label: const Text('Edit')),
+          ]),
+          const SizedBox(height: 6),
+          row('Name', party.name),
+          if ((party.phone ?? '').isNotEmpty)  row('Phone', party.phone!),
+          if ((party.gstin ?? '').isNotEmpty)  row('GSTIN', party.gstin!),
+          if ((party.farmName ?? '').isNotEmpty) row('Farm', party.farmName!),
+          if ((party.address ?? '').isNotEmpty)  row('Address', party.address!),
+        ]),
+      ),
+    );
+  }
+}
+
+
+/// ============== Add Customer dialog (phone required; GSTIN optional) ==============
 class _AddCustomerDialog extends StatefulWidget {
   const _AddCustomerDialog({required this.ctrl});
   final SalesDispatchController ctrl;
@@ -831,11 +927,13 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
   final _phone = TextEditingController();
   final _farm  = TextEditingController();
   final _addr  = TextEditingController();
+  final _email = TextEditingController();
+  final _gstin = TextEditingController();
   bool _saving = false;
 
   @override
   void dispose() {
-    _name.dispose(); _phone.dispose(); _farm.dispose(); _addr.dispose();
+    _name.dispose(); _phone.dispose(); _farm.dispose(); _addr.dispose(); _email.dispose(); _gstin.dispose();
     super.dispose();
   }
 
@@ -869,30 +967,20 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                 ]),
                 const SizedBox(height: 10),
 
-                TextFormField(
-                  controller: _name,
-                  decoration: _box('Name *'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
+                TextFormField(controller: _phone, decoration: _box('Phone *'), keyboardType: TextInputType.phone,
+                  validator: (v){ final s=(v??'').trim(); return s.isEmpty ? 'Phone required' : null; }),
                 const SizedBox(height: 10),
-                TextFormField(
-                  controller: _phone,
-                  decoration: _box('Phone'),
-                  keyboardType: TextInputType.phone,
-                ),
+                TextFormField(controller: _name,  decoration: _box('Name (optional)')),
                 const SizedBox(height: 10),
-                TextFormField(
-                  controller: _farm,
-                  decoration: _box('Farm name'),
-                ),
+                TextFormField(controller: _gstin, decoration: _box('GSTIN (optional)')),
                 const SizedBox(height: 10),
-                TextFormField(
-                  controller: _addr,
-                  decoration: _box('Address'),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 16),
+                TextFormField(controller: _email, decoration: _box('Email (optional)')),
+                const SizedBox(height: 10),
+                TextFormField(controller: _farm,  decoration: _box('Farm name (optional)')),
+                const SizedBox(height: 10),
+                TextFormField(controller: _addr,  decoration: _box('Address (optional)'), maxLines: 2),
 
+                const SizedBox(height: 16),
                 Row(children: [
                   Expanded(
                     child: FilledButton(
@@ -901,8 +989,10 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
                         setState(() => _saving = true);
                         try {
                           final p = await widget.ctrl.addCustomer(
-                            name: _name.text.trim(),
-                            phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
+                            phone: _phone.text.trim(),
+                            name: _name.text.trim().isEmpty ? null : _name.text.trim(),
+                            gstin: _gstin.text.trim().isEmpty ? null : _gstin.text.trim(),
+                            email: _email.text.trim().isEmpty ? null : _email.text.trim(),
                             farmName: _farm.text.trim().isEmpty ? null : _farm.text.trim(),
                             address: _addr.text.trim().isEmpty ? null : _addr.text.trim(),
                           );
@@ -938,8 +1028,167 @@ class _AddCustomerDialogState extends State<_AddCustomerDialog> {
   }
 }
 
-/* ---------------- Line items + totals (unchanged logic) ---------------- */
+/// ============== Edit Customer dialog ==============
 
+
+class _EditCustomerDialog extends StatefulWidget {
+  const _EditCustomerDialog({required this.ctrl, required this.party});
+  final SalesDispatchController ctrl;
+  final Party party;
+
+  @override
+  State<_EditCustomerDialog> createState() => _EditCustomerDialogState();
+}
+
+class _EditCustomerDialogState extends State<_EditCustomerDialog> {
+  final _form = GlobalKey<FormState>();
+  late final TextEditingController _name;
+  late final TextEditingController _phone;
+  late final TextEditingController _farm;
+  late final TextEditingController _addr;
+  late final TextEditingController _email;
+  late final TextEditingController _gstin;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _name  = TextEditingController(text: widget.party.name);
+    _phone = TextEditingController(text: widget.party.phone ?? '');
+    _farm  = TextEditingController(text: widget.party.farmName ?? '');
+    _addr  = TextEditingController(text: widget.party.address ?? '');
+    _email = TextEditingController(text: widget.party.email ?? '');
+    _gstin = TextEditingController(text: widget.party.gstin ?? '');
+  }
+
+  @override
+  void dispose() {
+    _name.dispose(); _phone.dispose(); _farm.dispose(); _addr.dispose(); _email.dispose(); _gstin.dispose();
+    super.dispose();
+  }
+
+  // Build a draft Party without touching DB
+Party _buildDraftParty() {
+  return widget.party.copyWith(
+    name: _name.text.trim(),
+    phone:    drift.Value(_phone.text.trim().isEmpty ? null : _phone.text.trim()),
+    email:    drift.Value(_email.text.trim().isEmpty ? null : _email.text.trim()),
+    gstin:    drift.Value(_gstin.text.trim().isEmpty ? null : _gstin.text.trim()),
+    address:  drift.Value(_addr.text.trim().isEmpty ? null : _addr.text.trim()),
+    farmName: drift.Value(_farm.text.trim().isEmpty ? null : _farm.text.trim()),
+  );
+}
+
+  @override
+  Widget build(BuildContext context) {
+    InputDecoration _box(String hint) => InputDecoration(
+      hintText: hint, isDense: true, filled: true, fillColor: Colors.grey.shade100,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+    );
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Form(
+            key: _form,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(children: [
+                  Text('Edit Customer', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                ]),
+                const SizedBox(height: 10),
+
+                TextFormField(controller: _name,  decoration: _box('Name')),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _phone, decoration: _box('Phone *'), keyboardType: TextInputType.phone,
+                  validator: (v){ final s=(v??'').trim(); return s.isEmpty ? 'Phone required' : null; },
+                ),
+                const SizedBox(height: 10),
+                TextFormField(controller: _gstin, decoration: _box('GSTIN (optional)')),
+                const SizedBox(height: 10),
+                TextFormField(controller: _email, decoration: _box('Email (optional)')),
+                const SizedBox(height: 10),
+                TextFormField(controller: _farm,  decoration: _box('Farm name (optional)')),
+                const SizedBox(height: 10),
+                TextFormField(controller: _addr,  decoration: _box('Address (optional)'), maxLines: 2),
+
+                const SizedBox(height: 16),
+                Row(children: [
+                  // ✅ Confirm (local preview only)
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _saving ? null : () {
+                        if (!_form.currentState!.validate()) return;
+                        final draft = _buildDraftParty();
+                        // Return without hitting DB
+                        Navigator.pop(context, EditCustomerResult(party: draft, saved: false));
+                      },
+                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                      child: const Text('Confirm (don’t update DB)', style: TextStyle(color: Colors.black)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // ✅ Update (persist to DB)
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _saving ? null : () async {
+                        if (!_form.currentState!.validate()) return;
+                        setState(() => _saving = true);
+                        try {
+                          final p = await widget.ctrl.updateCustomer(
+                            id: widget.party.id,
+                            name: _name.text.trim(),
+                            phone: _phone.text.trim(), // phone required
+                            gstin: _gstin.text.trim().isEmpty ? null : _gstin.text.trim(),
+                            email: _email.text.trim().isEmpty ? null : _email.text.trim(),
+                            farmName: _farm.text.trim().isEmpty ? null : _farm.text.trim(),
+                            address: _addr.text.trim().isEmpty ? null : _addr.text.trim(),
+                          );
+                          if (!mounted) return;
+                          // Return saved row
+                          Navigator.pop(context, EditCustomerResult(party: p, saved: true));
+                        } finally {
+                          if (mounted) setState(() => _saving = false);
+                        }
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.black, foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: Text(_saving ? 'Saving…' : 'Update (save to DB)'),
+                    ),
+                  ),
+                ]),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class EditCustomerResult {
+  /// The edited Party object (either a draft or the saved DB row)
+  final Party party;
+  /// true = was saved to DB; false = only confirm (local preview)
+  final bool saved;
+  const EditCustomerResult({required this.party, required this.saved});
+}
+
+
+/// ================== Line items & totals ==================
 class _LineItemsSection extends StatelessWidget {
   const _LineItemsSection({
     required this.rows,
@@ -1068,7 +1317,7 @@ class _LineItemsSection extends StatelessWidget {
             ),
             const SizedBox(width: 8),
 
-            // Line total (net + tax)
+            // Line total
             Expanded(
               flex: 3,
               child: Container(
@@ -1082,13 +1331,8 @@ class _LineItemsSection extends StatelessWidget {
                 child: Text(_inr(lineTot)),
               ),
             ),
-
             const SizedBox(width: 8),
-            IconButton(
-              tooltip: 'Remove',
-              onPressed: () => onRemoveRow(i),
-              icon: const Icon(Icons.close),
-            ),
+            IconButton(tooltip: 'Remove', onPressed: () => onRemoveRow(i), icon: const Icon(Icons.close)),
           ],
         ),
       );
@@ -1134,7 +1378,6 @@ class _TotalsPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     int subtotal = 0;
     int taxTotal = 0;
-
     for (final r in rows) {
       final q = r.qty ?? 0;
       final rate = r.unitPriceMinor ?? 0;
@@ -1152,28 +1395,21 @@ class _TotalsPreview extends StatelessWidget {
         color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade700)),
-          const SizedBox(width: 8),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
-        ],
-      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(label, style: TextStyle(color: Colors.grey.shade700)),
+        const SizedBox(width: 8),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+      ]),
     );
 
-    return Wrap(
-      spacing: 10, runSpacing: 10,
-      children: [
-        chip('Subtotal', _inr(subtotal)),
-        chip('Tax', _inr(taxTotal)),
-        chip('Total', _inr(grand)),
-      ],
-    );
+    return Wrap(spacing: 10, runSpacing: 10, children: [
+      chip('Subtotal', _inr(subtotal)),
+      chip('Tax', _inr(taxTotal)),
+      chip('Total', _inr(grand)),
+    ]);
   }
 }
 
-// Simple INR grouping
 String _inr(int n) {
   final s = n.toString();
   if (s.length <= 3) return '₹$s';
@@ -1183,10 +1419,8 @@ String _inr(int n) {
   return '₹$headWithCommas,$tail';
 }
 
-/* ---------------- Payment dialog (receives ctrl) ---------------- */
-
+/// ================= Payment Dialog (Cash / Credit) =================
 enum PaymentMode { cash, credit }
-
 class _PaymentChoice {
   final PaymentMode mode;
   final int? cashAmountMinor;
@@ -1197,11 +1431,7 @@ class _PaymentDialog extends StatefulWidget {
   final SalesDispatchController ctrl;
   final int partyId;
   final int orderTotalMinor;
-  const _PaymentDialog({
-    required this.ctrl,
-    required this.partyId,
-    required this.orderTotalMinor,
-  });
+  const _PaymentDialog({required this.ctrl, required this.partyId, required this.orderTotalMinor});
 
   @override
   State<_PaymentDialog> createState() => _PaymentDialogState();
@@ -1216,8 +1446,8 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   void initState() {
     super.initState();
     _amountCtrl.text = widget.orderTotalMinor.toString();
-    // ✅ no Provider read here
     _statsF = widget.ctrl.getPartyStats(widget.partyId);
+    
   }
 
   @override
@@ -1226,7 +1456,8 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     super.dispose();
   }
 
-  String _inr(int n) {
+  String _inr(int n) => _inrFmt(n);
+  static String _inrFmt(int n) {
     final s = n.toString();
     if (s.length <= 3) return '₹$s';
     final head = s.substring(0, s.length - 3);
@@ -1363,10 +1594,212 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     );
   }
 }
+class CustomerPickerFormField extends FormField<int?> {
+  CustomerPickerFormField({
+    super.key,
+    required List<Party> customers,
+    int? initialValue,
+    String labelText = '',
+    FormFieldValidator<int?>? validator,
+    ValueChanged<int?>? onChanged,
+    bool enabled = true,
+  }) : super(
+          initialValue: initialValue,
+          validator: validator ?? (v) => v == null ? 'Select customer' : null,
+          builder: (state) {
+            final theme = Theme.of(state.context);
+            // Resolve selected name
+            String selectedName = 'Select customer';
+            if (state.value != null) {
+              final p = customers.firstWhere(
+                (e) => e.id == state.value,
+                orElse: () => Party(
+                  id: -1,
+                  orgId: -1,
+                  name: '',
+                  phone: null,
+                  email: null,
+                  gstin: null,
+                  address: null,
+                  farmName: null,
+                  partyType: PartyType.customer,
+                  createdAt: null,
+                  updatedAt: null,
+                ),
+              );
+              if (p.id != -1) selectedName = p.name;
+            }
 
-/* ---------------- Simple Sales Order Details page (receives ctrl) ---------------- */
+            Future<void> _openSheet() async {
+              if (!enabled) return;
+              final picked = await showModalBottomSheet<Party>(
+                context: state.context,
+                isScrollControlled: true,
+                builder: (_) => _CustomerPickerSheet(customers: customers),
+              );
+              if (picked != null) {
+                state.didChange(picked.id);
+                onChanged?.call(picked.id);
+              }
+            }
 
+            final errorText = state.errorText;
 
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: _openSheet,
+                  child: InputDecorator(
+                    isEmpty: state.value == null,
+                    decoration: InputDecoration(
+                      labelText: labelText,
+                      isDense: true,
+                      filled: true,
+                      enabled: enabled,
+                      fillColor: Colors.grey.shade100,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      errorText: errorText,
+                      suffixIcon: const Icon(Icons.search),
+                    ),
+                    child: Text(
+                      selectedName,
+                      style: TextStyle(
+                        color: selectedName == 'Select customer'
+                            ? theme.colorScheme.onSurfaceVariant
+                            : theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+}
 
+class _CustomerPickerSheet extends StatefulWidget {
+  const _CustomerPickerSheet({required this.customers});
+  final List<Party> customers;
 
+  @override
+  State<_CustomerPickerSheet> createState() => _CustomerPickerSheetState();
+}
 
+class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
+  final _q = TextEditingController();
+  late List<Party> _filtered;
+
+  @override
+  void initState() {
+    super.initState();
+    _filtered = List.of(widget.customers);
+    _q.addListener(_apply);
+  }
+
+  @override
+  void dispose() {
+    _q.dispose();
+    super.dispose();
+  }
+
+  void _apply() {
+    final qq = _q.text.trim().toLowerCase();
+    setState(() {
+      if (qq.isEmpty) {
+        _filtered = List.of(widget.customers);
+      } else {
+        _filtered = widget.customers.where((p) {
+          bool match(String? s) => (s ?? '').toLowerCase().contains(qq);
+          return match(p.name) || match(p.phone) || match(p.farmName) || match(p.gstin);
+        }).toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewInsets = MediaQuery.of(context).viewInsets;
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      child: DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: isMobile ? 0.85 : 0.65,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, controller) {
+          return Material(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                Container(
+                  height: 4,
+                  width: 40,
+                  margin: const EdgeInsets.only(top: 10, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: TextField(
+                    controller: _q,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Search by name / phone / farm / GSTIN',
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.separated(
+                    controller: controller,
+                    itemCount: _filtered.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final p = _filtered[i];
+                      return ListTile(
+                        title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: _sub(p),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.pop(context, p),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+  }
+  Text? _sub(Party p) {
+    final chips = <String>[];
+    if ((p.phone ?? '').isNotEmpty) chips.add(p.phone!);
+    if ((p.farmName ?? '').isNotEmpty) chips.add('Farm: ${p.farmName}');
+    if ((p.gstin ?? '').isNotEmpty) chips.add('GST: ${p.gstin}');
+    return chips.isEmpty
+        ? null
+        : Text(chips.join('  •  '), maxLines: 1, overflow: TextOverflow.ellipsis);
+  }
+
+}

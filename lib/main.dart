@@ -1,6 +1,7 @@
 import 'package:bhago/app/data/local_database.dart';
 import 'package:bhago/core/auth_gate.dart';
 import 'package:bhago/features/dashboard/controller/auth_provider.dart';
+import 'package:bhago/features/dashboard/controller/sales_dispatch_controller.dart';
 
 import 'package:bhago/features/dashboard/controller/theme_controller.dart';
 import 'package:bhago/features/dashboard/controller/settings_controller.dart';
@@ -14,41 +15,96 @@ import 'features/dashboard/controller/actions_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // ✅ Initialize SQLite
   final db = AppDatabase();
-
-
 
   final themeCtrl = ThemeController();
   await themeCtrl.load();
 
+runApp(
+  // MultiProvider(
+  //   providers: [
+  //     // Single DB instance, provided once
+  //     Provider<AppDatabase>(
+  //       create: (_) => AppDatabase(),
+  //       dispose: (_, db) => db.close(),
+  //     ),
+
+  //     // Actions / Theme
+  //     ChangeNotifierProvider(
+  //       create: (_) {
+  //         final c = ActionsController();
+  //         c.load();
+  //         return c;
+  //       },
+  //     ),
+  //     ChangeNotifierProvider(
+  //       create: (_) => ThemeController()..load(),
+  //     ),
+
+  //     // Auth
+  //     ChangeNotifierProvider(create: (_) => AuthProvider()..load()),
+
+  //     // Single SettingsProvider shared everywhere
+  //     ChangeNotifierProvider<SettingsProvider>(
+  //       create: (ctx) => SettingsProvider(ctx.read<AppDatabase>())..load(),
+  //     ),
+
+  //     // SalesDispatchController must reuse the SAME SettingsProvider
+  //     ChangeNotifierProvider<SalesDispatchController>(
+  //       create: (ctx) => SalesDispatchController(
+  //         db: ctx.read<AppDatabase>(),
+  //         settings: ctx.read<SettingsProvider>(),
+  //       ),
+  //     ),
+  //   ],
+  //   child: const MyApp(),
+  // ),
 
 
-  runApp(
-    MultiProvider(
-      providers: [
-        Provider.value(value: db), // ✅ inject DB globally
-     ChangeNotifierProvider(
-  create: (_) {
-    final c = ActionsController();
-    c.load(); // kick off SharedPreferences load + sanitize
-    return c;
-  },
-),
+   Provider<AppDatabase>.value(
+      value: db,
+      child: MultiProvider(
+        providers: [
+          Provider<AppDatabase>(
+        create: (_) => AppDatabase(),
+        dispose: (_, db) => db.close(),
+      ),
 
-        ChangeNotifierProvider.value(value: themeCtrl),
-       ChangeNotifierProvider(create: (ctx) => AuthProvider()..load()),
-        ChangeNotifierProvider(create: (ctx) => SettingsProvider(db)..load()),
-          Provider<AppDatabase>(create: (_) => db, dispose: (_, d) => d.close()),
-        ChangeNotifierProvider(
-          create: (ctx) => SettingsProvider(ctx.read<AppDatabase>())..load(),
+      // Actions / Theme
+      ChangeNotifierProvider(
+        create: (_) {
+          final c = ActionsController();
+          c.load();
+          return c;
+        },
+      ),
+      ChangeNotifierProvider(
+        create: (_) => ThemeController()..load(),
+      ),
+
+      // Auth
+      ChangeNotifierProvider(create: (_) => AuthProvider()..load()),
+
+      // Single SettingsProvider shared everywhere
+      ChangeNotifierProvider<SettingsProvider>(
+        create: (ctx) => SettingsProvider(ctx.read<AppDatabase>())..load(),
+      ),
+
+      // SalesDispatchController must reuse the SAME SettingsProvider
+      ChangeNotifierProvider<SalesDispatchController>(
+        create: (ctx) => SalesDispatchController(
+          db: ctx.read<AppDatabase>(),
+          settings: ctx.read<SettingsProvider>(),
         ),
-      ],
-      child: const MyApp(),
+      ),
+        ],
+        child: const MyApp(),
+      ),
     ),
-  );
+);
+
 }
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

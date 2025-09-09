@@ -33,6 +33,21 @@ class EnumIndexConverter<T extends Enum> extends TypeConverter<T, int> {
 /// ====================================
 /// Tables - names and columns match spec
 /// ====================================
+// lib/app/data/local_database.dart (tables file)
+
+class SoPartySnapshots extends Table {
+  IntColumn get soId => integer().references(SalesOrders, #id)();
+
+  TextColumn get name     => text().nullable()();
+  TextColumn get phone    => text().nullable()();
+  TextColumn get email    => text().nullable()();
+  TextColumn get gstin    => text().nullable()();
+  TextColumn get address  => text().nullable()();
+  TextColumn get farmName => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {soId};
+}
 
 class Organizations extends Table {
   IntColumn get id => integer().autoIncrement()();

@@ -1,4 +1,5 @@
 // lib/features/dashboard/controller/actions_controller.dart
+import 'package:bhago/features/dashboard/presentation/all_transactions_page.dart';
 import 'package:bhago/features/dashboard/presentation/pages/manage_actions_page.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +21,7 @@ class ActionsController extends ChangeNotifier {
     ActionItem(id: 'reports',  label: 'Reports',           icon: Icons.bar_chart_outlined, page: ReportPage()),
     ActionItem(id: 'settings', label: 'Settings',          icon: Icons.settings_outlined, page: SettingPage()),
     ActionItem(id: 'actions',  label: 'Actions',           icon: Icons.favorite, page: ManageActionsPage()),
+     ActionItem(id: 'transection',  label: 'Order Transection',           icon: Icons.blinds_closed, page: AllTransactionsPage()),
   ];
 
   // Favorites and selection
