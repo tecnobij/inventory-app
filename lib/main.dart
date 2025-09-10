@@ -21,44 +21,6 @@ Future<void> main() async {
   await themeCtrl.load();
 
 runApp(
-  // MultiProvider(
-  //   providers: [
-  //     // Single DB instance, provided once
-  //     Provider<AppDatabase>(
-  //       create: (_) => AppDatabase(),
-  //       dispose: (_, db) => db.close(),
-  //     ),
-
-  //     // Actions / Theme
-  //     ChangeNotifierProvider(
-  //       create: (_) {
-  //         final c = ActionsController();
-  //         c.load();
-  //         return c;
-  //       },
-  //     ),
-  //     ChangeNotifierProvider(
-  //       create: (_) => ThemeController()..load(),
-  //     ),
-
-  //     // Auth
-  //     ChangeNotifierProvider(create: (_) => AuthProvider()..load()),
-
-  //     // Single SettingsProvider shared everywhere
-  //     ChangeNotifierProvider<SettingsProvider>(
-  //       create: (ctx) => SettingsProvider(ctx.read<AppDatabase>())..load(),
-  //     ),
-
-  //     // SalesDispatchController must reuse the SAME SettingsProvider
-  //     ChangeNotifierProvider<SalesDispatchController>(
-  //       create: (ctx) => SalesDispatchController(
-  //         db: ctx.read<AppDatabase>(),
-  //         settings: ctx.read<SettingsProvider>(),
-  //       ),
-  //     ),
-  //   ],
-  //   child: const MyApp(),
-  // ),
 
 
    Provider<AppDatabase>.value(

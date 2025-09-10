@@ -9450,6 +9450,452 @@ class FavoriteActionsCompanion extends UpdateCompanion<FavoriteAction> {
   }
 }
 
+class $SoPartySnapshotsTable extends SoPartySnapshots
+    with TableInfo<$SoPartySnapshotsTable, SoPartySnapshot> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SoPartySnapshotsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _soIdMeta = const VerificationMeta('soId');
+  @override
+  late final GeneratedColumn<int> soId = GeneratedColumn<int>(
+    'so_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES sales_orders (id)',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _phoneMeta = const VerificationMeta('phone');
+  @override
+  late final GeneratedColumn<String> phone = GeneratedColumn<String>(
+    'phone',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _emailMeta = const VerificationMeta('email');
+  @override
+  late final GeneratedColumn<String> email = GeneratedColumn<String>(
+    'email',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _gstinMeta = const VerificationMeta('gstin');
+  @override
+  late final GeneratedColumn<String> gstin = GeneratedColumn<String>(
+    'gstin',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _addressMeta = const VerificationMeta(
+    'address',
+  );
+  @override
+  late final GeneratedColumn<String> address = GeneratedColumn<String>(
+    'address',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _farmNameMeta = const VerificationMeta(
+    'farmName',
+  );
+  @override
+  late final GeneratedColumn<String> farmName = GeneratedColumn<String>(
+    'farm_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    soId,
+    name,
+    phone,
+    email,
+    gstin,
+    address,
+    farmName,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'so_party_snapshots';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SoPartySnapshot> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('so_id')) {
+      context.handle(
+        _soIdMeta,
+        soId.isAcceptableOrUnknown(data['so_id']!, _soIdMeta),
+      );
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    }
+    if (data.containsKey('phone')) {
+      context.handle(
+        _phoneMeta,
+        phone.isAcceptableOrUnknown(data['phone']!, _phoneMeta),
+      );
+    }
+    if (data.containsKey('email')) {
+      context.handle(
+        _emailMeta,
+        email.isAcceptableOrUnknown(data['email']!, _emailMeta),
+      );
+    }
+    if (data.containsKey('gstin')) {
+      context.handle(
+        _gstinMeta,
+        gstin.isAcceptableOrUnknown(data['gstin']!, _gstinMeta),
+      );
+    }
+    if (data.containsKey('address')) {
+      context.handle(
+        _addressMeta,
+        address.isAcceptableOrUnknown(data['address']!, _addressMeta),
+      );
+    }
+    if (data.containsKey('farm_name')) {
+      context.handle(
+        _farmNameMeta,
+        farmName.isAcceptableOrUnknown(data['farm_name']!, _farmNameMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {soId};
+  @override
+  SoPartySnapshot map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SoPartySnapshot(
+      soId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}so_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      ),
+      phone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}phone'],
+      ),
+      email: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}email'],
+      ),
+      gstin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}gstin'],
+      ),
+      address: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}address'],
+      ),
+      farmName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}farm_name'],
+      ),
+    );
+  }
+
+  @override
+  $SoPartySnapshotsTable createAlias(String alias) {
+    return $SoPartySnapshotsTable(attachedDatabase, alias);
+  }
+}
+
+class SoPartySnapshot extends DataClass implements Insertable<SoPartySnapshot> {
+  final int soId;
+  final String? name;
+  final String? phone;
+  final String? email;
+  final String? gstin;
+  final String? address;
+  final String? farmName;
+  const SoPartySnapshot({
+    required this.soId,
+    this.name,
+    this.phone,
+    this.email,
+    this.gstin,
+    this.address,
+    this.farmName,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['so_id'] = Variable<int>(soId);
+    if (!nullToAbsent || name != null) {
+      map['name'] = Variable<String>(name);
+    }
+    if (!nullToAbsent || phone != null) {
+      map['phone'] = Variable<String>(phone);
+    }
+    if (!nullToAbsent || email != null) {
+      map['email'] = Variable<String>(email);
+    }
+    if (!nullToAbsent || gstin != null) {
+      map['gstin'] = Variable<String>(gstin);
+    }
+    if (!nullToAbsent || address != null) {
+      map['address'] = Variable<String>(address);
+    }
+    if (!nullToAbsent || farmName != null) {
+      map['farm_name'] = Variable<String>(farmName);
+    }
+    return map;
+  }
+
+  SoPartySnapshotsCompanion toCompanion(bool nullToAbsent) {
+    return SoPartySnapshotsCompanion(
+      soId: Value(soId),
+      name: name == null && nullToAbsent ? const Value.absent() : Value(name),
+      phone: phone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(phone),
+      email: email == null && nullToAbsent
+          ? const Value.absent()
+          : Value(email),
+      gstin: gstin == null && nullToAbsent
+          ? const Value.absent()
+          : Value(gstin),
+      address: address == null && nullToAbsent
+          ? const Value.absent()
+          : Value(address),
+      farmName: farmName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(farmName),
+    );
+  }
+
+  factory SoPartySnapshot.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SoPartySnapshot(
+      soId: serializer.fromJson<int>(json['soId']),
+      name: serializer.fromJson<String?>(json['name']),
+      phone: serializer.fromJson<String?>(json['phone']),
+      email: serializer.fromJson<String?>(json['email']),
+      gstin: serializer.fromJson<String?>(json['gstin']),
+      address: serializer.fromJson<String?>(json['address']),
+      farmName: serializer.fromJson<String?>(json['farmName']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'soId': serializer.toJson<int>(soId),
+      'name': serializer.toJson<String?>(name),
+      'phone': serializer.toJson<String?>(phone),
+      'email': serializer.toJson<String?>(email),
+      'gstin': serializer.toJson<String?>(gstin),
+      'address': serializer.toJson<String?>(address),
+      'farmName': serializer.toJson<String?>(farmName),
+    };
+  }
+
+  SoPartySnapshot copyWith({
+    int? soId,
+    Value<String?> name = const Value.absent(),
+    Value<String?> phone = const Value.absent(),
+    Value<String?> email = const Value.absent(),
+    Value<String?> gstin = const Value.absent(),
+    Value<String?> address = const Value.absent(),
+    Value<String?> farmName = const Value.absent(),
+  }) => SoPartySnapshot(
+    soId: soId ?? this.soId,
+    name: name.present ? name.value : this.name,
+    phone: phone.present ? phone.value : this.phone,
+    email: email.present ? email.value : this.email,
+    gstin: gstin.present ? gstin.value : this.gstin,
+    address: address.present ? address.value : this.address,
+    farmName: farmName.present ? farmName.value : this.farmName,
+  );
+  SoPartySnapshot copyWithCompanion(SoPartySnapshotsCompanion data) {
+    return SoPartySnapshot(
+      soId: data.soId.present ? data.soId.value : this.soId,
+      name: data.name.present ? data.name.value : this.name,
+      phone: data.phone.present ? data.phone.value : this.phone,
+      email: data.email.present ? data.email.value : this.email,
+      gstin: data.gstin.present ? data.gstin.value : this.gstin,
+      address: data.address.present ? data.address.value : this.address,
+      farmName: data.farmName.present ? data.farmName.value : this.farmName,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SoPartySnapshot(')
+          ..write('soId: $soId, ')
+          ..write('name: $name, ')
+          ..write('phone: $phone, ')
+          ..write('email: $email, ')
+          ..write('gstin: $gstin, ')
+          ..write('address: $address, ')
+          ..write('farmName: $farmName')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(soId, name, phone, email, gstin, address, farmName);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SoPartySnapshot &&
+          other.soId == this.soId &&
+          other.name == this.name &&
+          other.phone == this.phone &&
+          other.email == this.email &&
+          other.gstin == this.gstin &&
+          other.address == this.address &&
+          other.farmName == this.farmName);
+}
+
+class SoPartySnapshotsCompanion extends UpdateCompanion<SoPartySnapshot> {
+  final Value<int> soId;
+  final Value<String?> name;
+  final Value<String?> phone;
+  final Value<String?> email;
+  final Value<String?> gstin;
+  final Value<String?> address;
+  final Value<String?> farmName;
+  const SoPartySnapshotsCompanion({
+    this.soId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.phone = const Value.absent(),
+    this.email = const Value.absent(),
+    this.gstin = const Value.absent(),
+    this.address = const Value.absent(),
+    this.farmName = const Value.absent(),
+  });
+  SoPartySnapshotsCompanion.insert({
+    this.soId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.phone = const Value.absent(),
+    this.email = const Value.absent(),
+    this.gstin = const Value.absent(),
+    this.address = const Value.absent(),
+    this.farmName = const Value.absent(),
+  });
+  static Insertable<SoPartySnapshot> custom({
+    Expression<int>? soId,
+    Expression<String>? name,
+    Expression<String>? phone,
+    Expression<String>? email,
+    Expression<String>? gstin,
+    Expression<String>? address,
+    Expression<String>? farmName,
+  }) {
+    return RawValuesInsertable({
+      if (soId != null) 'so_id': soId,
+      if (name != null) 'name': name,
+      if (phone != null) 'phone': phone,
+      if (email != null) 'email': email,
+      if (gstin != null) 'gstin': gstin,
+      if (address != null) 'address': address,
+      if (farmName != null) 'farm_name': farmName,
+    });
+  }
+
+  SoPartySnapshotsCompanion copyWith({
+    Value<int>? soId,
+    Value<String?>? name,
+    Value<String?>? phone,
+    Value<String?>? email,
+    Value<String?>? gstin,
+    Value<String?>? address,
+    Value<String?>? farmName,
+  }) {
+    return SoPartySnapshotsCompanion(
+      soId: soId ?? this.soId,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      gstin: gstin ?? this.gstin,
+      address: address ?? this.address,
+      farmName: farmName ?? this.farmName,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (soId.present) {
+      map['so_id'] = Variable<int>(soId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (phone.present) {
+      map['phone'] = Variable<String>(phone.value);
+    }
+    if (email.present) {
+      map['email'] = Variable<String>(email.value);
+    }
+    if (gstin.present) {
+      map['gstin'] = Variable<String>(gstin.value);
+    }
+    if (address.present) {
+      map['address'] = Variable<String>(address.value);
+    }
+    if (farmName.present) {
+      map['farm_name'] = Variable<String>(farmName.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SoPartySnapshotsCompanion(')
+          ..write('soId: $soId, ')
+          ..write('name: $name, ')
+          ..write('phone: $phone, ')
+          ..write('email: $email, ')
+          ..write('gstin: $gstin, ')
+          ..write('address: $address, ')
+          ..write('farmName: $farmName')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9476,6 +9922,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $FavoriteActionsTable favoriteActions = $FavoriteActionsTable(
     this,
   );
+  late final $SoPartySnapshotsTable soPartySnapshots = $SoPartySnapshotsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -9499,6 +9948,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     numberingPatterns,
     actions,
     favoriteActions,
+    soPartySnapshots,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -15556,6 +16006,29 @@ final class $$SalesOrdersTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$SoPartySnapshotsTable, List<SoPartySnapshot>>
+  _soPartySnapshotsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.soPartySnapshots,
+    aliasName: $_aliasNameGenerator(
+      db.salesOrders.id,
+      db.soPartySnapshots.soId,
+    ),
+  );
+
+  $$SoPartySnapshotsTableProcessedTableManager get soPartySnapshotsRefs {
+    final manager = $$SoPartySnapshotsTableTableManager(
+      $_db,
+      $_db.soPartySnapshots,
+    ).filter((f) => f.soId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _soPartySnapshotsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$SalesOrdersTableFilterComposer
@@ -15718,6 +16191,31 @@ class $$SalesOrdersTableFilterComposer
           }) => $$InvoicesTableFilterComposer(
             $db: $db,
             $table: $db.invoices,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> soPartySnapshotsRefs(
+    Expression<bool> Function($$SoPartySnapshotsTableFilterComposer f) f,
+  ) {
+    final $$SoPartySnapshotsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.soPartySnapshots,
+      getReferencedColumn: (t) => t.soId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SoPartySnapshotsTableFilterComposer(
+            $db: $db,
+            $table: $db.soPartySnapshots,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -16002,6 +16500,31 @@ class $$SalesOrdersTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> soPartySnapshotsRefs<T extends Object>(
+    Expression<T> Function($$SoPartySnapshotsTableAnnotationComposer a) f,
+  ) {
+    final $$SoPartySnapshotsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.soPartySnapshots,
+      getReferencedColumn: (t) => t.soId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SoPartySnapshotsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.soPartySnapshots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$SalesOrdersTableTableManager
@@ -16023,6 +16546,7 @@ class $$SalesOrdersTableTableManager
             bool warehouseId,
             bool salesOrderItemsRefs,
             bool invoicesRefs,
+            bool soPartySnapshotsRefs,
           })
         > {
   $$SalesOrdersTableTableManager(_$AppDatabase db, $SalesOrdersTable table)
@@ -16103,12 +16627,14 @@ class $$SalesOrdersTableTableManager
                 warehouseId = false,
                 salesOrderItemsRefs = false,
                 invoicesRefs = false,
+                soPartySnapshotsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (salesOrderItemsRefs) db.salesOrderItems,
                     if (invoicesRefs) db.invoices,
+                    if (soPartySnapshotsRefs) db.soPartySnapshots,
                   ],
                   addJoins:
                       <
@@ -16218,6 +16744,27 @@ class $$SalesOrdersTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (soPartySnapshotsRefs)
+                        await $_getPrefetchedData<
+                          SalesOrder,
+                          $SalesOrdersTable,
+                          SoPartySnapshot
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SalesOrdersTableReferences
+                              ._soPartySnapshotsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SalesOrdersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).soPartySnapshotsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.soId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -16244,6 +16791,7 @@ typedef $$SalesOrdersTableProcessedTableManager =
         bool warehouseId,
         bool salesOrderItemsRefs,
         bool invoicesRefs,
+        bool soPartySnapshotsRefs,
       })
     >;
 typedef $$SalesOrderItemsTableCreateCompanionBuilder =
@@ -20380,6 +20928,366 @@ typedef $$FavoriteActionsTableProcessedTableManager =
       FavoriteAction,
       PrefetchHooks Function({bool actionId})
     >;
+typedef $$SoPartySnapshotsTableCreateCompanionBuilder =
+    SoPartySnapshotsCompanion Function({
+      Value<int> soId,
+      Value<String?> name,
+      Value<String?> phone,
+      Value<String?> email,
+      Value<String?> gstin,
+      Value<String?> address,
+      Value<String?> farmName,
+    });
+typedef $$SoPartySnapshotsTableUpdateCompanionBuilder =
+    SoPartySnapshotsCompanion Function({
+      Value<int> soId,
+      Value<String?> name,
+      Value<String?> phone,
+      Value<String?> email,
+      Value<String?> gstin,
+      Value<String?> address,
+      Value<String?> farmName,
+    });
+
+final class $$SoPartySnapshotsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $SoPartySnapshotsTable, SoPartySnapshot> {
+  $$SoPartySnapshotsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $SalesOrdersTable _soIdTable(_$AppDatabase db) =>
+      db.salesOrders.createAlias(
+        $_aliasNameGenerator(db.soPartySnapshots.soId, db.salesOrders.id),
+      );
+
+  $$SalesOrdersTableProcessedTableManager get soId {
+    final $_column = $_itemColumn<int>('so_id')!;
+
+    final manager = $$SalesOrdersTableTableManager(
+      $_db,
+      $_db.salesOrders,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_soIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$SoPartySnapshotsTableFilterComposer
+    extends Composer<_$AppDatabase, $SoPartySnapshotsTable> {
+  $$SoPartySnapshotsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get phone => $composableBuilder(
+    column: $table.phone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get gstin => $composableBuilder(
+    column: $table.gstin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get farmName => $composableBuilder(
+    column: $table.farmName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$SalesOrdersTableFilterComposer get soId {
+    final $$SalesOrdersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.soId,
+      referencedTable: $db.salesOrders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SalesOrdersTableFilterComposer(
+            $db: $db,
+            $table: $db.salesOrders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SoPartySnapshotsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SoPartySnapshotsTable> {
+  $$SoPartySnapshotsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get phone => $composableBuilder(
+    column: $table.phone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get gstin => $composableBuilder(
+    column: $table.gstin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get farmName => $composableBuilder(
+    column: $table.farmName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$SalesOrdersTableOrderingComposer get soId {
+    final $$SalesOrdersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.soId,
+      referencedTable: $db.salesOrders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SalesOrdersTableOrderingComposer(
+            $db: $db,
+            $table: $db.salesOrders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SoPartySnapshotsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SoPartySnapshotsTable> {
+  $$SoPartySnapshotsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get phone =>
+      $composableBuilder(column: $table.phone, builder: (column) => column);
+
+  GeneratedColumn<String> get email =>
+      $composableBuilder(column: $table.email, builder: (column) => column);
+
+  GeneratedColumn<String> get gstin =>
+      $composableBuilder(column: $table.gstin, builder: (column) => column);
+
+  GeneratedColumn<String> get address =>
+      $composableBuilder(column: $table.address, builder: (column) => column);
+
+  GeneratedColumn<String> get farmName =>
+      $composableBuilder(column: $table.farmName, builder: (column) => column);
+
+  $$SalesOrdersTableAnnotationComposer get soId {
+    final $$SalesOrdersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.soId,
+      referencedTable: $db.salesOrders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SalesOrdersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.salesOrders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SoPartySnapshotsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SoPartySnapshotsTable,
+          SoPartySnapshot,
+          $$SoPartySnapshotsTableFilterComposer,
+          $$SoPartySnapshotsTableOrderingComposer,
+          $$SoPartySnapshotsTableAnnotationComposer,
+          $$SoPartySnapshotsTableCreateCompanionBuilder,
+          $$SoPartySnapshotsTableUpdateCompanionBuilder,
+          (SoPartySnapshot, $$SoPartySnapshotsTableReferences),
+          SoPartySnapshot,
+          PrefetchHooks Function({bool soId})
+        > {
+  $$SoPartySnapshotsTableTableManager(
+    _$AppDatabase db,
+    $SoPartySnapshotsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SoPartySnapshotsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SoPartySnapshotsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SoPartySnapshotsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> soId = const Value.absent(),
+                Value<String?> name = const Value.absent(),
+                Value<String?> phone = const Value.absent(),
+                Value<String?> email = const Value.absent(),
+                Value<String?> gstin = const Value.absent(),
+                Value<String?> address = const Value.absent(),
+                Value<String?> farmName = const Value.absent(),
+              }) => SoPartySnapshotsCompanion(
+                soId: soId,
+                name: name,
+                phone: phone,
+                email: email,
+                gstin: gstin,
+                address: address,
+                farmName: farmName,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> soId = const Value.absent(),
+                Value<String?> name = const Value.absent(),
+                Value<String?> phone = const Value.absent(),
+                Value<String?> email = const Value.absent(),
+                Value<String?> gstin = const Value.absent(),
+                Value<String?> address = const Value.absent(),
+                Value<String?> farmName = const Value.absent(),
+              }) => SoPartySnapshotsCompanion.insert(
+                soId: soId,
+                name: name,
+                phone: phone,
+                email: email,
+                gstin: gstin,
+                address: address,
+                farmName: farmName,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$SoPartySnapshotsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({soId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (soId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.soId,
+                                referencedTable:
+                                    $$SoPartySnapshotsTableReferences
+                                        ._soIdTable(db),
+                                referencedColumn:
+                                    $$SoPartySnapshotsTableReferences
+                                        ._soIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$SoPartySnapshotsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SoPartySnapshotsTable,
+      SoPartySnapshot,
+      $$SoPartySnapshotsTableFilterComposer,
+      $$SoPartySnapshotsTableOrderingComposer,
+      $$SoPartySnapshotsTableAnnotationComposer,
+      $$SoPartySnapshotsTableCreateCompanionBuilder,
+      $$SoPartySnapshotsTableUpdateCompanionBuilder,
+      (SoPartySnapshot, $$SoPartySnapshotsTableReferences),
+      SoPartySnapshot,
+      PrefetchHooks Function({bool soId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -20420,4 +21328,6 @@ class $AppDatabaseManager {
       $$ActionsTableTableManager(_db, _db.actions);
   $$FavoriteActionsTableTableManager get favoriteActions =>
       $$FavoriteActionsTableTableManager(_db, _db.favoriteActions);
+  $$SoPartySnapshotsTableTableManager get soPartySnapshots =>
+      $$SoPartySnapshotsTableTableManager(_db, _db.soPartySnapshots);
 }

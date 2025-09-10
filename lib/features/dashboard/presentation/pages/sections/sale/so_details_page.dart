@@ -8,9 +8,34 @@ class SalesOrderDetailsPage extends StatelessWidget {
   final int soId;
   const SalesOrderDetailsPage({super.key, required this.soId});
 
+  bool _isWalkInName(String? name) {
+    if (name == null) return false;
+    final norm = name.trim().toLowerCase().replaceAll(RegExp(r'[-\s]+'), ' ');
+    // Covers: "Walk-in Customer", "Walk in Customer", "Walk-in..."
+    return norm == 'walk in customer' || norm.startsWith('walk in');
+  }
+
+  SoHeaderVM _applyDraft(SoHeaderVM base, Party? d) {
+    if (d == null) return base;
+    return SoHeaderVM(
+      id: base.id,
+      soDate: base.soDate,
+      status: base.status,
+      subtotalMinor: base.subtotalMinor,
+      taxMinor: base.taxMinor,
+      totalMinor: base.totalMinor,
+      partyId: base.partyId,
+      partyName: d.name,
+      phone: d.phone,
+      gstin: d.gstin,
+      address: d.address,
+      farmName: d.farmName,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-     final ctrl = context.watch<SalesDispatchController>();
+    final ctrl = context.watch<SalesDispatchController>();
     return Scaffold(
       appBar: AppBar(
         title: Text('Sales Order #${soId.toString().padLeft(6,'0')}'),
@@ -21,31 +46,20 @@ class SalesOrderDetailsPage extends StatelessWidget {
       body: FutureBuilder<SoHeaderVM>(
         future: ctrl.loadSoHeader(soId),
         builder: (context, snap) {
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-          final h = snap.data!;
-SoHeaderVM _applyDraft(SoHeaderVM base, Party? d) {
-  if (d == null) return base;
-  return SoHeaderVM(
-    id: base.id,
-    soDate: base.soDate,
-    status: base.status,
-    subtotalMinor: base.subtotalMinor,
-    taxMinor: base.taxMinor,
-    totalMinor: base.totalMinor,
-    partyId: base.partyId,
-    partyName: d.name,
-    phone: d.phone,
-    gstin: d.gstin,
-    address: d.address,
-    farmName: d.farmName,
-  );
-}
-final headerForUi = _applyDraft(h, ctrl.partyDraftFor(h.partyId));
+          if (!snap.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // Apply SO-scoped draft (from "Use for this order only") on top of DB header
+          final soDraft = ctrl.soDraftFor(soId);
+          final headerForUi = _applyDraft(snap.data!, soDraft);
+          final isWalkIn = _isWalkInName(headerForUi.partyName);
+
           return Padding(
             padding: const EdgeInsets.all(16),
             child: ListView(
               children: [
-              _HeaderCard(header: headerForUi),
+                _HeaderCard(header: headerForUi),
                 const SizedBox(height: 16),
 
                 // Items
@@ -58,34 +72,36 @@ final headerForUi = _applyDraft(h, ctrl.partyDraftFor(h.partyId));
                 ),
                 const SizedBox(height: 16),
 
-                // Party balance summary
-                FutureBuilder<PartyStats>(
-                  future: ctrl.getPartyStats(h.partyId),
-                  builder: (context, stSnap) {
-                    if (!stSnap.hasData) {
-                      return const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: LinearProgressIndicator(minHeight: 2),
-                        ),
+                // Party balance summary (HIDDEN for Walk-in)
+                if (!isWalkIn)
+                  FutureBuilder<PartyStats>(
+                    future: ctrl.getPartyStats(headerForUi.partyId),
+                    builder: (context, stSnap) {
+                      if (!stSnap.hasData) {
+                        return const Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: LinearProgressIndicator(minHeight: 2),
+                          ),
+                        );
+                      }
+                      final s = stSnap.data!;
+                      return _PartyBalanceCard(
+                        partyName: headerForUi.partyName,
+                        currentDue: s.due,
+                        thisOrder: headerForUi.totalMinor,
                       );
-                    }
-                    final s = stSnap.data!;
-                    return _PartyBalanceCard(
-  partyName: headerForUi.partyName,
-  currentDue: s.due,
-  thisOrder: headerForUi.totalMinor,
-);
-                  },
-                ),
-                const SizedBox(height: 16),
+                    },
+                  ),
 
-                // Payments for THIS order
+                if (!isWalkIn) const SizedBox(height: 16),
+
+                // Payments for THIS order (still useful for Walk-in)
                 _PaymentsCard(soId: soId),
                 const SizedBox(height: 16),
 
-                // ✅ FULL PARTY LEDGER (All transactions)
-               _LedgerCard(partyId: headerForUi.partyId),
+                // FULL PARTY LEDGER (HIDDEN for Walk-in)
+                if (!isWalkIn) _LedgerCard(partyId: headerForUi.partyId),
               ],
             ),
           );
@@ -96,10 +112,7 @@ final headerForUi = _applyDraft(h, ctrl.partyDraftFor(h.partyId));
 }
 
 /* ---------------------- Existing cards (unchanged) ---------------------- */
-// _HeaderCard, _ItemsCard, _PartyBalanceCard, _PaymentsCard
-// (keep your definitions as you have; omitted here for brevity)
 
-/* ----------------------------- Ledger Card ------------------------------ */
 class _LedgerCard extends StatelessWidget {
   final int partyId;
   const _LedgerCard({required this.partyId});
@@ -142,7 +155,6 @@ class _LedgerCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Title
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -155,7 +167,6 @@ class _LedgerCard extends StatelessWidget {
 
           header(),
 
-          // Rows
           StreamBuilder<List<LedgerRowVM>>(
             stream: ctrl.watchPartyLedger(partyId),
             builder: (context, snap) {
@@ -467,8 +478,8 @@ class _PaymentsCard extends StatelessWidget {
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Row(
-              children: [
-                const Expanded(
+              children: const [
+                Expanded(
                   child: Text('Payments (This Order)', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],

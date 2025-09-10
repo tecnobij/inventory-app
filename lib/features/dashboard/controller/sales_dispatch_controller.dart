@@ -5,7 +5,6 @@ import 'package:bhago/app/data/local_database.dart';
 import 'package:bhago/features/dashboard/controller/settings_controller.dart';
 
 /// ------------ View Models ------------
-// ---------- Add near the top (outside the class) ----------
 enum LedgerKind { sale, paymentIn }
 
 class LedgerVM {
@@ -51,6 +50,7 @@ class SalesOrderVM {
 
   String get soNo => 'SO-${id.toString().padLeft(6, '0')}';
 }
+
 class LedgerRowVM {
   final DateTime? dt;
   final String kind;        // 'SO', 'PAYIN', 'PAYOUT'
@@ -217,83 +217,165 @@ class SalesDispatchController extends ChangeNotifier {
   // local search state (independent for SO & Invoices)
   String _soQuery = '';
   String _invQuery = '';
-final Map<int, Party> _partyDrafts = {};
-// in SalesDispatchController
 
-SoStatus? _statusFromDb(int? raw) {
-  if (raw == null) return null;
-  if (raw < 0 || raw >= SoStatus.values.length) return null;
-  return SoStatus.values[raw];
-}
+  // Local drafts (do not persist)
+  final Map<int, Party> _partyDrafts = {}; // keyed by partyId
+  final Map<int, Party> _soDrafts    = {}; // keyed by soId
 
-Future<SoHeaderVM> loadSoHeader(int soId) async {
-  final row = await db.customSelect(
-    '''
-    SELECT
-      so.id, so.so_date, so.status, so.subtotal_minor, so.tax_minor, so.total_minor,
-      p.id AS party_id, p.name AS party_name, p.phone, p.gstin, p.address, p.farm_name
-    FROM sales_orders so
-    JOIN parties p ON p.id = so.party_id
-    WHERE so.org_id = ? AND so.id = ?
-    LIMIT 1
-    ''',
-    variables: [drift.Variable<int>(orgId), drift.Variable<int>(soId)],
-    readsFrom: {db.salesOrders, db.parties},
-  ).getSingleOrNull();
-
-  if (row == null) {
-    throw StateError('Sales Order $soId not found for org $orgId');
+  // Pending draft for "new customer not yet in DB" (adopt after SO creation)
+  Party? _pendingPartyDraft;
+  void setPendingPartyDraft(Party draft) {
+    _pendingPartyDraft = draft;
+    notifyListeners();
+  }
+  Party? peekPendingPartyDraft() => _pendingPartyDraft;
+  Party? consumePendingPartyDraft() {
+    final d = _pendingPartyDraft;
+    _pendingPartyDraft = null;
+    notifyListeners();
+    return d;
   }
 
-  // Pick DB values first
-  final partyId   = row.read<int>('party_id');
-  String  name    = row.read<String>('party_name');
-  String? phone   = row.readNullable<String>('phone');
-  String? gstin   = row.readNullable<String>('gstin');
-  String? address = row.readNullable<String>('address');
-  String? farm    = row.readNullable<String>('farm_name');
+  // Draft helpers
+  void setPartyDraft(Party draft) { _partyDrafts[draft.id] = draft; notifyListeners(); }
+  void clearPartyDraft(int partyId) { _partyDrafts.remove(partyId); notifyListeners(); }
 
-  // Overlay with local draft (if any)
-  final draft = partyDraftFor(partyId);
-  String? _pick(String? draftVal, String? dbVal) =>
-      (draftVal != null && draftVal.isNotEmpty) ? draftVal : dbVal;
+  void setSoPartyDraft(int soId, Party draft) { _soDrafts[soId] = draft; notifyListeners(); }
+  Party? soDraftFor(int soId) => _soDrafts[soId];
+  void clearSoDraft(int soId) { _soDrafts.remove(soId); notifyListeners(); }
 
-  if (draft != null) {
-    name    = _pick(draft.name, name) ?? name; // name is required in our model, keep DB if draft empty
-    phone   = _pick(draft.phone,   phone);
-    gstin   = _pick(draft.gstin,   gstin);
-    address = _pick(draft.address, address);
-    farm    = _pick(draft.farmName, farm);
+  // Adopt pending draft for a specific SO after it gets created (and persist snapshot)
+  Future<void> adoptPendingDraftForSo(int soId) async {
+    final d = _pendingPartyDraft;
+    if (d != null) {
+      _soDrafts[soId] = d;
+      _pendingPartyDraft = null;
+      // also persist into SoPartySnapshots so details page shows it even after navigation
+      await saveSoPartySnapshot(soId: soId, draft: d);
+      notifyListeners();
+    }
   }
 
-  return SoHeaderVM(
-    id: row.read<int>('id'),
-    soDate: row.readNullable<DateTime>('so_date'),
-    status: _statusFromDb(row.readNullable<int>('status')),
-    subtotalMinor: row.read<int>('subtotal_minor'),
-    taxMinor: row.read<int>('tax_minor'),
-    totalMinor: row.read<int>('total_minor'),
-    partyId: partyId,
-    partyName: name,
-    phone: phone,
-    gstin: gstin,
-    address: address,
-    farmName: farm,
-  );
-}
+  SoStatus? _statusFromDb(int? raw) {
+    if (raw == null) return null;
+    if (raw < 0 || raw >= SoStatus.values.length) return null;
+    return SoStatus.values[raw];
+  }
 
+  /// Persist per-order customer fields (upsert) to SoPartySnapshots
+  Future<void> saveSoPartySnapshot({
+    required int soId,
+    required Party draft,
+  }) async {
+    // NOTE: Ensure SoPartySnapshots is added to @DriftDatabase(tables:[...]).
+    await db.into(db.soPartySnapshots).insertOnConflictUpdate(
+      SoPartySnapshotsCompanion(
+        soId: drift.Value(soId),
+        name: (draft.name.isEmpty)
+            ? const drift.Value.absent()
+            : drift.Value(draft.name),
+        phone: draft.phone == null
+            ? const drift.Value.absent()
+            : drift.Value(draft.phone),
+        email: draft.email == null
+            ? const drift.Value.absent()
+            : drift.Value(draft.email),
+        gstin: draft.gstin == null
+            ? const drift.Value.absent()
+            : drift.Value(draft.gstin),
+        address: draft.address == null
+            ? const drift.Value.absent()
+            : drift.Value(draft.address),
+        farmName: draft.farmName == null
+            ? const drift.Value.absent()
+            : drift.Value(draft.farmName),
+      ),
+    );
+    notifyListeners();
+  }
 
-void setPartyDraft(Party draft) {
-  _partyDrafts[draft.id] = draft;
-  notifyListeners();
-}
+  /// Optional helper to clear a snapshot
+  Future<void> clearSoPartySnapshot(int soId) async {
+    await (db.delete(db.soPartySnapshots)..where((t) => t.soId.equals(soId))).go();
+    _soDrafts.remove(soId);
+    notifyListeners();
+  }
 
-void clearPartyDraft(int partyId) {
-  _partyDrafts.remove(partyId);
-  notifyListeners();
-}
+  Future<SoHeaderVM> loadSoHeader(int soId) async {
+    final row = await db.customSelect(
+      '''
+      SELECT
+        so.id, so.so_date, so.status, so.subtotal_minor, so.tax_minor, so.total_minor,
+        p.id AS party_id, p.name AS party_name, p.phone, p.gstin, p.address, p.farm_name
+      FROM sales_orders so
+      JOIN parties p ON p.id = so.party_id
+      WHERE so.org_id = ? AND so.id = ?
+      LIMIT 1
+      ''',
+      variables: [drift.Variable<int>(orgId), drift.Variable<int>(soId)],
+      readsFrom: {db.salesOrders, db.parties},
+    ).getSingleOrNull();
 
-Party? partyDraftFor(int partyId) => _partyDrafts[partyId];
+    if (row == null) {
+      throw StateError('Sales Order $soId not found for org $orgId');
+    }
+
+    // Base: DB values
+    final partyId   = row.read<int>('party_id');
+    String  name    = row.read<String>('party_name');
+    String? phone   = row.readNullable<String>('phone');
+    String? gstin   = row.readNullable<String>('gstin');
+    String? address = row.readNullable<String>('address');
+    String? farm    = row.readNullable<String>('farm_name');
+
+    // 1) Overlay with persisted per-order snapshot (if any)
+    final snap = await (db.select(db.soPartySnapshots)..where((t) => t.soId.equals(soId))).getSingleOrNull();
+    if (snap != null) {
+      if ((snap.name ?? '').isNotEmpty)    name    = snap.name!;
+      if ((snap.phone ?? '').isNotEmpty)   phone   = snap.phone;
+      if ((snap.gstin ?? '').isNotEmpty)   gstin   = snap.gstin;
+      if ((snap.address ?? '').isNotEmpty) address = snap.address;
+      if ((snap.farmName ?? '').isNotEmpty)farm    = snap.farmName;
+    }
+
+    // 2) Overlay with in-memory SO-scoped draft (strongest)
+    final soDraft = soDraftFor(soId);
+    if (soDraft != null) {
+      if ((soDraft.name).isNotEmpty)       name    = soDraft.name;
+      if ((soDraft.phone ?? '').isNotEmpty)phone   = soDraft.phone;
+      if ((soDraft.gstin ?? '').isNotEmpty)gstin   = soDraft.gstin;
+      if ((soDraft.address ?? '').isNotEmpty)address = soDraft.address;
+      if ((soDraft.farmName ?? '').isNotEmpty)farm   = soDraft.farmName;
+    } else {
+      // 3) Finally, overlay with generic party draft (weaker than SO draft)
+      final partyDraft = partyDraftFor(partyId);
+      if (partyDraft != null) {
+        if ((partyDraft.name).isNotEmpty)       name    = partyDraft.name;
+        if ((partyDraft.phone ?? '').isNotEmpty)phone   = partyDraft.phone;
+        if ((partyDraft.gstin ?? '').isNotEmpty)gstin   = partyDraft.gstin;
+        if ((partyDraft.address ?? '').isNotEmpty)address = partyDraft.address;
+        if ((partyDraft.farmName ?? '').isNotEmpty)farm   = partyDraft.farmName;
+      }
+    }
+
+    return SoHeaderVM(
+      id: row.read<int>('id'),
+      soDate: row.readNullable<DateTime>('so_date'),
+      status: _statusFromDb(row.readNullable<int>('status')),
+      subtotalMinor: row.read<int>('subtotal_minor'),
+      taxMinor: row.read<int>('tax_minor'),
+      totalMinor: row.read<int>('total_minor'),
+      partyId: partyId,
+      partyName: name,
+      phone: phone,
+      gstin: gstin,
+      address: address,
+      farmName: farm,
+    );
+  }
+
+  Party? partyDraftFor(int partyId) => _partyDrafts[partyId];
+
   void setSoQuery(String q) {
     _soQuery = q.trim().toLowerCase();
     notifyListeners();
@@ -307,6 +389,24 @@ Party? partyDraftFor(int partyId) => _partyDrafts[partyId];
   int? _defaultWarehouseIdCache;
   int? get defaultWarehouseId => _defaultWarehouseIdCache;
 
+  Future<int> ensureWalkInParty() async {
+    final exist = await (db.select(db.parties)
+          ..where((t) => t.orgId.equals(orgId) & t.name.equals('Walk-in Customer')))
+        .getSingleOrNull();
+    if (exist != null) return exist.id;
+
+    final id = await db.into(db.parties).insert(
+      PartiesCompanion.insert(
+        orgId: orgId,
+        name: 'Walk-in Customer',
+        partyType: PartyType.customer,
+        createdAt: drift.Value(DateTime.now()),
+        updatedAt: drift.Value(DateTime.now()),
+      ),
+    );
+    return id;
+  }
+
   /// Resolve and cache a default warehouse (first active one).
   Future<int?> ensureDefaultWarehouse() async {
     if (_defaultWarehouseIdCache != null) return _defaultWarehouseIdCache;
@@ -318,53 +418,52 @@ Party? partyDraftFor(int partyId) => _partyDrafts[partyId];
     _defaultWarehouseIdCache = row?.id;
     return _defaultWarehouseIdCache;
   }
-Stream<List<LedgerRowVM>> watchPartyLedger(int partyId) {
-  final sql = '''
-    SELECT so.so_date AS dt,
-           'SO'       AS kind,
-           so.id      AS ref_id,
-           so.total_minor AS debit,
-           0          AS credit,
-           NULL       AS note
-    FROM sales_orders so
-    WHERE so.org_id = ? AND so.party_id = ?
-    UNION ALL
-    SELECT pay.paid_at AS dt,
-           CASE WHEN pay.direction = 0 THEN 'PAYIN' ELSE 'PAYOUT' END AS kind,
-           pay.id      AS ref_id,
-           CASE WHEN pay.direction = 1 THEN pay.amount_minor ELSE 0 END AS debit,
-           CASE WHEN pay.direction = 0 THEN pay.amount_minor ELSE 0 END AS credit,
-           pay.note    AS note
-    FROM payments pay
-    WHERE pay.org_id = ? AND pay.party_id = ?
-    ORDER BY dt ASC, ref_id ASC
-  ''';
 
-  return db
-      .customSelect(
-        sql,
-        variables: [
-          drift.Variable<int>(orgId),
-          drift.Variable<int>(partyId),
-          drift.Variable<int>(orgId),
-          drift.Variable<int>(partyId),
-        ],
-        readsFrom: {db.salesOrders, db.payments},
-      )
-      .watch()
-      .map((rows) => rows
-          .map((r) => LedgerRowVM(
-                dt: r.readNullable<DateTime>('dt'),
-                kind: r.read<String>('kind'),
-                refId: r.read<int>('ref_id'),
-                debitMinor: r.read<int>('debit'),
-                creditMinor: r.read<int>('credit'),
-                note: r.readNullable<String>('note'),
-              ))
-          .toList());
-}
+  Stream<List<LedgerRowVM>> watchPartyLedger(int partyId) {
+    final sql = '''
+      SELECT so.so_date AS dt,
+             'SO'       AS kind,
+             so.id      AS ref_id,
+             so.total_minor AS debit,
+             0          AS credit,
+             NULL       AS note
+      FROM sales_orders so
+      WHERE so.org_id = ? AND so.party_id = ?
+      UNION ALL
+      SELECT pay.paid_at AS dt,
+             CASE WHEN pay.direction = 0 THEN 'PAYIN' ELSE 'PAYOUT' END AS kind,
+             pay.id      AS ref_id,
+             CASE WHEN pay.direction = 1 THEN pay.amount_minor ELSE 0 END AS debit,
+             CASE WHEN pay.direction = 0 THEN pay.amount_minor ELSE 0 END AS credit,
+             pay.note    AS note
+      FROM payments pay
+      WHERE pay.org_id = ? AND pay.party_id = ?
+      ORDER BY dt ASC, ref_id ASC
+    ''';
 
-
+    return db
+        .customSelect(
+          sql,
+          variables: [
+            drift.Variable<int>(orgId),
+            drift.Variable<int>(partyId),
+            drift.Variable<int>(orgId),
+            drift.Variable<int>(partyId),
+          ],
+          readsFrom: {db.salesOrders, db.payments},
+        )
+        .watch()
+        .map((rows) => rows
+            .map((r) => LedgerRowVM(
+                  dt: r.readNullable<DateTime>('dt'),
+                  kind: r.read<String>('kind'),
+                  refId: r.read<int>('ref_id'),
+                  debitMinor: r.read<int>('debit'),
+                  creditMinor: r.read<int>('credit'),
+                  note: r.readNullable<String>('note'),
+                ))
+            .toList());
+  }
 
   // ---------- Streams (lists) ----------
   Stream<List<SalesOrderVM>> watchSalesOrders() {
@@ -466,13 +565,7 @@ Stream<List<LedgerRowVM>> watchPartyLedger(int partyId) {
         });
   }
 
-
-
-
-
-
   // ---------- Dropdown data ----------
-
   Future<List<Party>> fetchCustomers() async {
     final list = await (db.select(db.parties)
           ..where((t) => t.orgId.equals(orgId)))
@@ -484,6 +577,7 @@ Stream<List<LedgerRowVM>> watchPartyLedger(int partyId) {
             p.partyType == PartyType.both)
         .toList();
   }
+
   Future<List<Product>> fetchProducts() {
     final q = db.select(db.products)
       ..where((t) =>
@@ -515,19 +609,19 @@ Stream<List<LedgerRowVM>> watchPartyLedger(int partyId) {
     String? gstin,
   }) async {
     final id = await db.into(db.parties).insert(
-          PartiesCompanion.insert(
-            orgId: orgId,
-            name: name ?? phone, // fallback if name omitted
-            partyType: PartyType.customer, // pass enum directly
-            phone: drift.Value(phone),
-            email: drift.Value(email),
-            gstin: drift.Value(gstin),
-            address: drift.Value(address),
-            farmName: drift.Value(farmName),
-            createdAt: drift.Value(DateTime.now()),
-            updatedAt: drift.Value(DateTime.now()),
-          ),
-        );
+      PartiesCompanion.insert(
+        orgId: orgId,
+        name: name ?? phone,
+        partyType: PartyType.customer,
+        phone: drift.Value(phone),
+        email: drift.Value(email),
+        gstin: drift.Value(gstin),
+        address: drift.Value(address),
+        farmName: drift.Value(farmName),
+        createdAt: drift.Value(DateTime.now()),
+        updatedAt: drift.Value(DateTime.now()),
+      ),
+    );
     return (await (db.select(db.parties)..where((t) => t.id.equals(id))).getSingle());
   }
 
@@ -564,13 +658,13 @@ Stream<List<LedgerRowVM>> watchPartyLedger(int partyId) {
         .getSingleOrNull();
     if (exist != null) return exist.id;
     return db.into(db.paymentMethods).insert(
-          PaymentMethodsCompanion.insert(
-            orgId: orgId,
-            name: 'Cash',
-            type: drift.Value(PayMethodType.cash),
-            isActive: const drift.Value(1),
-          ),
-        );
+      PaymentMethodsCompanion.insert(
+        orgId: orgId,
+        name: 'Cash',
+        type: drift.Value(PayMethodType.cash),
+        isActive: const drift.Value(1),
+      ),
+    );
   }
 
   /// Insert an incoming payment tied to a Sales Order via ref_no = 'SO-<id>'
@@ -582,288 +676,94 @@ Stream<List<LedgerRowVM>> watchPartyLedger(int partyId) {
     String? note,
   }) {
     return db.into(db.payments).insert(
-          PaymentsCompanion.insert(
-            orgId: orgId,
-            partyId: partyId,
-            invoiceId: const drift.Value.absent(), // not via invoice
-            methodId: methodId,
-            direction: PayDir.in_,                 // incoming
-            amountMinor: amountMinor,
-            refNo: drift.Value('SO-$salesOrderId'),
-            note: drift.Value(note ?? 'Payment at SO $salesOrderId'),
-            paidAt: drift.Value(DateTime.now()),
-            createdAt: drift.Value(DateTime.now()),
-          ),
-        );
-  }
-
-
-// -------------------- 1) CREATE SO (no snapshots) --------------------
-Future<int> createSalesOrder({
-  required int partyId,
-  required int warehouseId,
-  required DateTime soDate,
-  required List<SoItemInput> items,
-}) async {
-  assert(items.isNotEmpty, 'At least one item required');
-
-  // Build totals from items
-  int subtotal = 0;
-  for (final it in items) {
-    subtotal += (it.qty * it.unitPriceMinor);
-  }
-  final defGst = await defaultGstPct() ?? 0;
-
-  // Pull product GSTs (only for tax preview / totals)
-  final ids = items.map((e) => e.productId).toSet().toList();
-  final prods = await (db.select(db.products)..where((t) => t.id.isIn(ids))).get();
-  final prodMap = {for (final p in prods) p.id: p};
-
-  int tax = 0;
-  for (final it in items) {
-    final line = it.qty * it.unitPriceMinor;
-    final gst  = (prodMap[it.productId]?.gstPercent ?? defGst);
-    tax += (line * gst ~/ 100);
-  }
-  final total = subtotal + tax;
-
-  return await db.transaction(() async {
-    final soId = await db.into(db.salesOrders).insert(
-      SalesOrdersCompanion.insert(
+      PaymentsCompanion.insert(
         orgId: orgId,
         partyId: partyId,
-        warehouseId: warehouseId,
-        soDate: drift.Value(soDate),
-        status: drift.Value(SoStatus.confirmed),   // enum directly (not index)
-        subtotalMinor: drift.Value(subtotal),
-        taxMinor: drift.Value(tax),
-        totalMinor: drift.Value(total),
+        invoiceId: const drift.Value.absent(),
+        methodId: methodId,
+        direction: PayDir.in_,
+        amountMinor: amountMinor,
+        refNo: drift.Value('SO-$salesOrderId'),
+        note: drift.Value(note ?? 'Payment at SO $salesOrderId'),
+        paidAt: drift.Value(DateTime.now()),
         createdAt: drift.Value(DateTime.now()),
-        updatedAt: drift.Value(DateTime.now()),
       ),
     );
+  }
 
+  // -------------------- CREATE SO (now adopts + persists pending draft if any) --------------------
+  Future<int> createSalesOrder({
+    required int partyId,
+    required int warehouseId,
+    required DateTime soDate,
+    required List<SoItemInput> items,
+  }) async {
+    assert(items.isNotEmpty, 'At least one item required');
+
+    // Build totals from items
+    int subtotal = 0;
     for (final it in items) {
-      final net = it.qty * it.unitPriceMinor;
-      await db.into(db.salesOrderItems).insert(
-        SalesOrderItemsCompanion.insert(
-          salesOrderId: soId,
-          productId: it.productId,
-          qty: it.qty,
-          unitPriceMinor: it.unitPriceMinor,
-          lineTotalMinor: net,
+      subtotal += (it.qty * it.unitPriceMinor);
+    }
+    final defGst = await defaultGstPct() ?? 0;
+
+    // Pull product GSTs (only for tax preview / totals)
+    final ids = items.map((e) => e.productId).toSet().toList();
+    final prods = await (db.select(db.products)..where((t) => t.id.isIn(ids))).get();
+    final prodMap = {for (final p in prods) p.id: p};
+
+    int tax = 0;
+    for (final it in items) {
+      final line = it.qty * it.unitPriceMinor;
+      final gst  = (prodMap[it.productId]?.gstPercent ?? defGst);
+      tax += (line * gst ~/ 100);
+    }
+    final total = subtotal + tax;
+
+    return await db.transaction(() async {
+      final soId = await db.into(db.salesOrders).insert(
+        SalesOrdersCompanion.insert(
+          orgId: orgId,
+          partyId: partyId,
+          warehouseId: warehouseId,
+          soDate: drift.Value(soDate),
+          status: drift.Value(SoStatus.confirmed),
+          subtotalMinor: drift.Value(subtotal),
+          taxMinor: drift.Value(tax),
+          totalMinor: drift.Value(total),
           createdAt: drift.Value(DateTime.now()),
           updatedAt: drift.Value(DateTime.now()),
         ),
       );
-    }
 
-    // ✅ No snapshot write here (removed)
+      for (final it in items) {
+        final net = it.qty * it.unitPriceMinor;
+        await db.into(db.salesOrderItems).insert(
+          SalesOrderItemsCompanion.insert(
+            salesOrderId: soId,
+            productId: it.productId,
+            qty: it.qty,
+            unitPriceMinor: it.unitPriceMinor,
+            lineTotalMinor: net,
+            createdAt: drift.Value(DateTime.now()),
+            updatedAt: drift.Value(DateTime.now()),
+          ),
+        );
+      }
 
-    return soId;
-  });
-}
+      // If a pending "order-only" draft exists (new customer typed but not in DB),
+      // persist it for this order and keep an in-memory soDraft for immediate UI.
+      if (_pendingPartyDraft != null) {
+        await saveSoPartySnapshot(soId: soId, draft: _pendingPartyDraft!);
+        _soDrafts[soId] = _pendingPartyDraft!;
+        _pendingPartyDraft = null;
+      }
 
-// -------------------- 2) HEADER (join parties, no snapshots) --------------------
-
-
-
-// -------------------- 4) PAYMENTS (for this SO) --------------------
-
-
-// -------------------- 5) PARTY STATS (used in dialogs/cards) --------------------
-Future<PartyStats> getPartyStats(int partyId) async {
-  final row = await db.customSelect(
-    '''
-    SELECT
-      (SELECT COALESCE(SUM(total_minor), 0) 
-         FROM sales_orders 
-        WHERE org_id = ? AND party_id = ?) AS so_total,
-      (SELECT COALESCE(SUM(amount_minor), 0) 
-         FROM payments 
-        WHERE org_id = ? AND party_id = ? AND direction = 0) AS paid_in
-    ''',
-    variables: [
-      drift.Variable<int>(orgId), drift.Variable<int>(partyId),
-      drift.Variable<int>(orgId), drift.Variable<int>(partyId),
-    ],
-    readsFrom: {db.salesOrders, db.payments},
-  ).getSingle();
-
-  final sales = row.read<int>('so_total');
-  final paid  = row.read<int>('paid_in');
-  return PartyStats(lifetimeSales: sales, paidIn: paid, due: sales - paid);
-}
-
-// -------------------- 6) LEDGER (null-safe variables; no NULL binds) --------------------
-Stream<List<LedgerVM>> watchLedger({
-  int? partyId,
-  DateTime? from,   // inclusive (optional)
-  DateTime? to,     // exclusive (optional)
-  String query = '',
-}) {
-  final likeQ = query.trim().toLowerCase();
-  final vars = <drift.Variable<Object>>[];
-
-  // ---- SO WHERE ----
-  final soWhere = StringBuffer('so.org_id = ?');
-  vars.add(drift.Variable<int>(orgId));
-  if (partyId != null) {
-    soWhere.write(' AND so.party_id = ?');
-    vars.add(drift.Variable<int>(partyId));
-  }
-  if (likeQ.isNotEmpty) {
-    final like = '%$likeQ%';
-    soWhere.write(
-      ' AND (LOWER(COALESCE(p.name, "")) LIKE ? OR CAST(so.id AS TEXT) LIKE ?)'
-    );
-    vars.addAll([drift.Variable<String>(like), drift.Variable<String>(like)]);
+      return soId;
+    });
   }
 
-  // ---- PAY WHERE (incoming only) ----
-  final payWhere = StringBuffer('pay.org_id = ? AND pay.direction = 0');
-  vars.add(drift.Variable<int>(orgId));
-  if (partyId != null) {
-    payWhere.write(' AND pay.party_id = ?');
-    vars.add(drift.Variable<int>(partyId));
-  }
-  if (likeQ.isNotEmpty) {
-    final like = '%$likeQ%';
-    // allow searching party or ref_no (e.g., "SO-123")
-    payWhere.write(
-      ' AND (LOWER(COALESCE(p.name, "")) LIKE ? OR LOWER(COALESCE(pay.ref_no, "")) LIKE ?)'
-    );
-    vars.addAll([drift.Variable<String>(like), drift.Variable<String>(like)]);
-  }
-
-  // optional time filter (applied after UNION)
-  final fromMs = from?.millisecondsSinceEpoch;
-  final toMs   = to?.millisecondsSinceEpoch;
-  final timeFilter = StringBuffer(' WHERE 1=1');
-  if (fromMs != null) {
-    timeFilter.write(' AND dt_ms >= ?');
-    vars.add(drift.Variable<int>(fromMs));
-  }
-  if (toMs != null) {
-    timeFilter.write(' AND dt_ms < ?');
-    vars.add(drift.Variable<int>(toMs));
-  }
-
-  // NOTE: we normalize dates that might be stored as INTEGER(ms or sec) or TEXT(ISO, YYYYMMDDHHMMSS, etc.)
-  // We also handle ISO with 'T' by REPLACE(ts,'T',' ').
-  const soTs = 'COALESCE(so.so_date, so.created_at)';
-  const payTs = 'COALESCE(pay.paid_at, pay.created_at)';
-
-  final sql = '''
-    WITH so_ledger AS (
-      SELECT
-        CASE
-          WHEN typeof($soTs) = 'integer' THEN
-            CASE
-              WHEN $soTs >= 20000000000 THEN $soTs                 -- already ms
-              WHEN $soTs >  1000000000  THEN $soTs * 1000          -- seconds -> ms
-              ELSE $soTs                                           -- tiny ints; keep as-is
-            END
-          WHEN typeof($soTs) = 'text' THEN
-            CASE
-              WHEN strftime('%s', REPLACE($soTs,'T',' ')) IS NOT NULL
-                THEN CAST(strftime('%s', REPLACE($soTs,'T',' ')) AS INTEGER) * 1000
-              WHEN length($soTs) IN (8,14) THEN
-                CAST(strftime('%s',
-                  substr($soTs,1,4) || '-' || substr($soTs,5,2) || '-' || substr($soTs,7,2) ||
-                  CASE WHEN length($soTs) = 14
-                       THEN ' ' || substr($soTs,9,2) || ':' || substr($soTs,11,2) || ':' || substr($soTs,13,2)
-                       ELSE ''
-                  END
-                ) AS INTEGER) * 1000
-              ELSE NULL
-            END
-          ELSE NULL
-        END AS dt_ms,
-        'SO' AS kind,
-        so.id AS so_id,
-        NULL AS payment_id,
-        COALESCE(p.name, '') AS party_name,
-        COALESCE(so.total_minor, 0) AS amount_minor,
-        NULL AS method,
-        NULL AS note
-      FROM sales_orders so
-      LEFT JOIN parties p ON p.id = so.party_id
-      WHERE ${soWhere.toString()}
-    ),
-    pay_ledger AS (
-      SELECT
-        CASE
-          WHEN typeof($payTs) = 'integer' THEN
-            CASE
-              WHEN $payTs >= 20000000000 THEN $payTs
-              WHEN $payTs >  1000000000  THEN $payTs * 1000
-              ELSE $payTs
-            END
-          WHEN typeof($payTs) = 'text' THEN
-            CASE
-              WHEN strftime('%s', REPLACE($payTs,'T',' ')) IS NOT NULL
-                THEN CAST(strftime('%s', REPLACE($payTs,'T',' ')) AS INTEGER) * 1000
-              WHEN length($payTs) IN (8,14) THEN
-                CAST(strftime('%s',
-                  substr($payTs,1,4) || '-' || substr($payTs,5,2) || '-' || substr($payTs,7,2) ||
-                  CASE WHEN length($payTs) = 14
-                       THEN ' ' || substr($payTs,9,2) || ':' || substr($payTs,11,2) || ':' || substr($payTs,13,2)
-                       ELSE ''
-                  END
-                ) AS INTEGER) * 1000
-              ELSE NULL
-            END
-          ELSE NULL
-        END AS dt_ms,
-        'PAYMENT_IN' AS kind,
-        CASE
-          WHEN COALESCE(pay.ref_no,'') LIKE 'SO-%'
-            THEN CAST(substr(pay.ref_no, 4) AS INTEGER)
-          ELSE NULL
-        END AS so_id,
-        pay.id AS payment_id,
-        COALESCE(p.name, '') AS party_name,
-        COALESCE(pay.amount_minor, 0) AS amount_minor,
-        COALESCE(pm.name, '') AS method,
-        pay.note AS note
-      FROM payments pay
-      LEFT JOIN parties p ON p.id = pay.party_id
-      LEFT JOIN payment_methods pm ON pm.id = pay.method_id
-      WHERE ${payWhere.toString()}
-    )
-    SELECT * FROM (
-      SELECT * FROM so_ledger
-      UNION ALL
-      SELECT * FROM pay_ledger
-    )
-    ${timeFilter.toString()}
-    ORDER BY (dt_ms IS NULL), dt_ms DESC, kind DESC, so_id DESC, payment_id DESC;
-  ''';
-
-  return db
-      .customSelect(
-        sql,
-        variables: vars,
-        readsFrom: {db.salesOrders, db.payments, db.parties, db.paymentMethods},
-      )
-      .watch()
-      .map((rows) => rows.map((r) {
-            final k = r.read<String>('kind');
-            final dtMs = r.readNullable<int>('dt_ms'); // may be null for old rows
-            return LedgerVM(
-              dt: dtMs == null ? null : DateTime.fromMillisecondsSinceEpoch(dtMs),
-              kind: (k == 'SO') ? LedgerKind.sale : LedgerKind.paymentIn,
-              soId: r.readNullable<int>('so_id'),
-              paymentId: r.readNullable<int>('payment_id'),
-              party: r.read<String>('party_name'),
-              amountMinor: r.read<int>('amount_minor'),
-              method: r.readNullable<String>('method'),
-              note: r.readNullable<String>('note'),
-            );
-          }).toList());
-}
-
+  // -------------------- Items, Payments, Stats, Ledger --------------------
   Future<List<SoLineVM>> loadSoItems(int soId) async {
     final sql = '''
       SELECT si.qty, si.unit_price_minor, si.line_total_minor,
@@ -916,6 +816,195 @@ Stream<List<LedgerVM>> watchLedger({
           amountMinor: r.read<int>('amount_minor'),
           note: r.readNullable<String>('note'),
         )).toList());
+  }
+
+  Future<PartyStats> getPartyStats(int partyId) async {
+    final row = await db.customSelect(
+      '''
+      SELECT
+        (SELECT COALESCE(SUM(total_minor), 0) 
+           FROM sales_orders 
+          WHERE org_id = ? AND party_id = ?) AS so_total,
+        (SELECT COALESCE(SUM(amount_minor), 0) 
+           FROM payments 
+          WHERE org_id = ? AND party_id = ? AND direction = 0) AS paid_in
+      ''',
+      variables: [
+        drift.Variable<int>(orgId), drift.Variable<int>(partyId),
+        drift.Variable<int>(orgId), drift.Variable<int>(partyId),
+      ],
+      readsFrom: {db.salesOrders, db.payments},
+    ).getSingle();
+
+    final sales = row.read<int>('so_total');
+    final paid  = row.read<int>('paid_in');
+    return PartyStats(lifetimeSales: sales, paidIn: paid, due: sales - paid);
+  }
+
+  // -------------------- Ledger (SO + PAYIN) with robust time parsing --------------------
+  Stream<List<LedgerVM>> watchLedger({
+    int? partyId,
+    DateTime? from,   // inclusive (optional)
+    DateTime? to,     // exclusive (optional)
+    String query = '',
+  }) {
+    final likeQ = query.trim().toLowerCase();
+    final vars = <drift.Variable<Object>>[];
+
+    // ---- SO WHERE ----
+    final soWhere = StringBuffer('so.org_id = ?');
+    vars.add(drift.Variable<int>(orgId));
+    if (partyId != null) {
+      soWhere.write(' AND so.party_id = ?');
+      vars.add(drift.Variable<int>(partyId));
+    }
+    if (likeQ.isNotEmpty) {
+      final like = '%$likeQ%';
+      soWhere.write(
+        ' AND (LOWER(COALESCE(p.name, "")) LIKE ? OR CAST(so.id AS TEXT) LIKE ?)'
+      );
+      vars.addAll([drift.Variable<String>(like), drift.Variable<String>(like)]);
+    }
+
+    // ---- PAY WHERE (incoming only) ----
+    final payWhere = StringBuffer('pay.org_id = ? AND pay.direction = 0');
+    vars.add(drift.Variable<int>(orgId));
+    if (partyId != null) {
+      payWhere.write(' AND pay.party_id = ?');
+      vars.add(drift.Variable<int>(partyId));
+    }
+    if (likeQ.isNotEmpty) {
+      final like = '%$likeQ%';
+      payWhere.write(
+        ' AND (LOWER(COALESCE(p.name, "")) LIKE ? OR LOWER(COALESCE(pay.ref_no, "")) LIKE ?)'
+      );
+      vars.addAll([drift.Variable<String>(like), drift.Variable<String>(like)]);
+    }
+
+    // optional time filter (applied after UNION)
+    final fromMs = from?.millisecondsSinceEpoch;
+    final toMs   = to?.millisecondsSinceEpoch;
+    final timeFilter = StringBuffer(' WHERE 1=1');
+    if (fromMs != null) {
+      timeFilter.write(' AND dt_ms >= ?');
+      vars.add(drift.Variable<int>(fromMs));
+    }
+    if (toMs != null) {
+      timeFilter.write(' AND dt_ms < ?');
+      vars.add(drift.Variable<int>(toMs));
+    }
+
+    const soTs = 'COALESCE(so.so_date, so.created_at)';
+    const payTs = 'COALESCE(pay.paid_at, pay.created_at)';
+
+    final sql = '''
+      WITH so_ledger AS (
+        SELECT
+          CASE
+            WHEN typeof($soTs) = 'integer' THEN
+              CASE
+                WHEN $soTs >= 20000000000 THEN $soTs
+                WHEN $soTs >  1000000000  THEN $soTs * 1000
+                ELSE $soTs
+              END
+            WHEN typeof($soTs) = 'text' THEN
+              CASE
+                WHEN strftime('%s', REPLACE($soTs,'T',' ')) IS NOT NULL
+                  THEN CAST(strftime('%s', REPLACE($soTs,'T',' ')) AS INTEGER) * 1000
+                WHEN length($soTs) IN (8,14) THEN
+                  CAST(strftime('%s',
+                    substr($soTs,1,4) || '-' || substr($soTs,5,2) || '-' || substr($soTs,7,2) ||
+                    CASE WHEN length($soTs) = 14
+                         THEN ' ' || substr($soTs,9,2) || ':' || substr($soTs,11,2) || ':' || substr($soTs,13,2)
+                         ELSE ''
+                    END
+                  ) AS INTEGER) * 1000
+                ELSE NULL
+              END
+            ELSE NULL
+          END AS dt_ms,
+          'SO' AS kind,
+          so.id AS so_id,
+          NULL AS payment_id,
+          COALESCE(p.name, '') AS party_name,
+          COALESCE(so.total_minor, 0) AS amount_minor,
+          NULL AS method,
+          NULL AS note
+        FROM sales_orders so
+        LEFT JOIN parties p ON p.id = so.party_id
+        WHERE ${soWhere.toString()}
+      ),
+      pay_ledger AS (
+        SELECT
+          CASE
+            WHEN typeof($payTs) = 'integer' THEN
+              CASE
+                WHEN $payTs >= 20000000000 THEN $payTs
+                WHEN $payTs >  1000000000  THEN $payTs * 1000
+                ELSE $payTs
+              END
+            WHEN typeof($payTs) = 'text' THEN
+              CASE
+                WHEN strftime('%s', REPLACE($payTs,'T',' ')) IS NOT NULL
+                  THEN CAST(strftime('%s', REPLACE($payTs,'T',' ')) AS INTEGER) * 1000
+                WHEN length($payTs) IN (8,14) THEN
+                  CAST(strftime('%s',
+                    substr($payTs,1,4) || '-' || substr($payTs,5,2) || '-' || substr($payTs,7,2) ||
+                    CASE WHEN length($payTs) = 14
+                         THEN ' ' || substr($payTs,9,2) || ':' || substr($payTs,11,2) || ':' || substr($payTs,13,2)
+                         ELSE ''
+                    END
+                  ) AS INTEGER) * 1000
+                ELSE NULL
+              END
+            ELSE NULL
+          END AS dt_ms,
+          'PAYMENT_IN' AS kind,
+          CASE
+            WHEN COALESCE(pay.ref_no,'') LIKE 'SO-%'
+              THEN CAST(substr(pay.ref_no, 4) AS INTEGER)
+            ELSE NULL
+          END AS so_id,
+          pay.id AS payment_id,
+          COALESCE(p.name, '') AS party_name,
+          COALESCE(pay.amount_minor, 0) AS amount_minor,
+          COALESCE(pm.name, '') AS method,
+          pay.note AS note
+        FROM payments pay
+        LEFT JOIN parties p ON p.id = pay.party_id
+        LEFT JOIN payment_methods pm ON pm.id = pay.method_id
+        WHERE ${payWhere.toString()}
+      )
+      SELECT * FROM (
+        SELECT * FROM so_ledger
+        UNION ALL
+        SELECT * FROM pay_ledger
+      )
+      ${timeFilter.toString()}
+      ORDER BY (dt_ms IS NULL), dt_ms DESC, kind DESC, so_id DESC, payment_id DESC;
+    ''';
+
+    return db
+        .customSelect(
+          sql,
+          variables: vars,
+          readsFrom: {db.salesOrders, db.payments, db.parties, db.paymentMethods},
+        )
+        .watch()
+        .map((rows) => rows.map((r) {
+              final k = r.read<String>('kind');
+              final dtMs = r.readNullable<int>('dt_ms');
+              return LedgerVM(
+                dt: dtMs == null ? null : DateTime.fromMillisecondsSinceEpoch(dtMs),
+                kind: (k == 'SO') ? LedgerKind.sale : LedgerKind.paymentIn,
+                soId: r.readNullable<int>('so_id'),
+                paymentId: r.readNullable<int>('payment_id'),
+                party: r.read<String>('party_name'),
+                amountMinor: r.read<int>('amount_minor'),
+                method: r.readNullable<String>('method'),
+                note: r.readNullable<String>('note'),
+              );
+            }).toList());
   }
 
   // Helpers

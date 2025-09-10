@@ -559,7 +559,9 @@ class _CreateSoTabState extends State<CreateSoTab> {
 
   final List<_LineItemRow> _rows = [ _LineItemRow() ];
 
-  List<Party> _customers = const [];
+  List<Party?> _customers = const [];
+  
+  List<Party> customers = const [];
   List<Product> _products = const [];
   int? _defaultWarehouseId;
 
@@ -606,7 +608,12 @@ class _CreateSoTabState extends State<CreateSoTab> {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
     );
 
-    final selParty = _partyId == null ? null : _customers.firstWhere((p) => p.id == _partyId, orElse: () => _customers.first);
+    final selParty = _partyId == null
+        ? null
+        : _customers.firstWhere(
+            (p) => p!.id == _partyId,
+            orElse: () => _customers.isEmpty ? null : _customers.first,
+          );
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 12 : 16),
@@ -618,81 +625,62 @@ class _CreateSoTabState extends State<CreateSoTab> {
             Text('Create Sales Order', style: TextStyle(fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.bold)),
             SizedBox(height: isMobile ? 16 : 24),
 
-            // Customer + Add Customer + Date (NO warehouse selection)
- 
-
- isMobile
-    ? Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: CustomerPickerFormField(
-                  customers: _customers,
-                  initialValue: _partyId,
-                  onChanged: (v) => setState(() => _partyId = v),
-                  labelText: '',
-                ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: _openAddCustomer,
-                icon: const Icon(Icons.person_add_alt_1),
-                label: const Text('Add'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-         if (_partyId != null && selParty != null) _CustomerMiniCard(
-  party: _draftParty ?? selParty,   // <- prefer draft
-  onEdit: _openEditCustomer,
-),
-          const SizedBox(height: 12),
-          _dateField(context, _box), // ✅ date field restored on mobile
-        ],
-      )
-    : Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                     Expanded(
-                child: CustomerPickerFormField(
-                  customers: _customers,
-                  initialValue: _partyId,
-                  onChanged: (v) => setState(() => _partyId = v),
-                  labelText: '',
-                ),
-              ),
-                    const SizedBox(width: 12),
-                    OutlinedButton.icon(
-                      onPressed: _openAddCustomer,
-                      icon: const Icon(Icons.person_add_alt_1),
-                      label: const Text('Add Customer'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (_partyId != null) _CustomerMiniCard(
-                  party: selParty!,
-                  onEdit: _openEditCustomer,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(child: _dateField(context, _box)), // already present on desktop
-        ],
-      ),
-
+            // ------- Customer + Date (inline editor supports "Use for this order only") -------
+            isMobile
+                ? Column(
+                    children: [
+                      CustomerInlineEditor(
+                        customers: customers,
+                        ctrl: ctrl,
+                        initial: selParty,
+                        // selecting an existing customer
+                        onPick: (p) => setState(() => _partyId = p.id),
+                        // after create/update in DB
+                        onSaved: (p) async {
+                          final customers = await ctrl.fetchCustomers();
+                          setState(() { _customers = customers; _partyId = p.id; });
+                          _snack(context, 'Customer saved');
+                        },
+                        // for "use for this order only", we just keep a draft/snapshot in ctrl
+                        onDraft: (draft) {
+                          // optional local reflection, no DB write
+                          setState(() {});
+                          _snack(context, 'Using local details for this order only');
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _dateField(context, _box),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: CustomerInlineEditor(
+                          customers: customers,
+                          ctrl: ctrl,
+                          initial: selParty,
+                          onPick: (p) => setState(() => _partyId = p.id),
+                          onSaved: (p) async {
+                            final customers = await ctrl.fetchCustomers();
+                            setState(() { _customers = customers; _partyId = p.id; });
+                            _snack(context, 'Customer saved');
+                          },
+                          onDraft: (draft) {
+                            setState(() {});
+                            _snack(context, 'Using local details for this order only');
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(child: _dateField(context, _box)),
+                    ],
+                  ),
 
             const SizedBox(height: 24),
 
-            // Line items with product GST, live totals
+            // ------- Line items with live totals -------
             _LineItemsSection(
               rows: _rows,
               products: _products,
@@ -712,10 +700,10 @@ class _CreateSoTabState extends State<CreateSoTab> {
                   if (!_form.currentState!.validate()) return;
                   if (_rows.isEmpty) { _snack(context, 'Add at least one line item'); return; }
                   if (_defaultWarehouseId == null) { _snack(context, 'No default warehouse configured'); return; }
-                  if (_partyId == null) { _snack(context, 'Select customer'); return; }
 
+                  // Build items + totals
                   final items = <SoItemInput>[];
-                  int subtotal = 0, tax = 0, total = 0;
+                  int subtotal = 0, tax = 0;
                   for (final r in _rows) {
                     if (r.productId == null || r.qty == null || r.unitPriceMinor == null) {
                       _snack(context, 'Complete all line items'); return;
@@ -728,36 +716,63 @@ class _CreateSoTabState extends State<CreateSoTab> {
                     final t       = (lineNet * gstPct / 100).round();
                     subtotal += lineNet; tax += t;
                   }
-                  total = subtotal + tax;
+                  final total = subtotal + tax;
 
-                  final ctrl = context.read<SalesDispatchController>();
-                 final choice = await showDialog<_PaymentChoice>(
+                  // ---------- CUSTOMER HANDLING ----------
+                  // Case A: We have a selected DB customer -> use it.
+                  // Case B: No DB customer but user pressed "Use for this order only" -> use Walk-in + snapshot.
+                  // Else: ask the user to either select a customer or press "Use for this order only".
+                
+         
+
+                 if (_partyId == null && ctrl.peekPendingPartyDraft() == null) {
+  _snack(context, 'Select customer or use “Use for this order only”.');
+  return;
+}
+
+// Get walk-in ID (creates it if missing)
+final walkInId = await ctrl.ensureWalkInParty();
+
+// If no real customer chosen, we’ll use walk-in
+final effectivePartyId = _partyId ?? walkInId;
+final isWalkIn = (effectivePartyId == walkInId);
+
+// ↓↓↓ OPEN DIALOG
+final choice = await showDialog<_PaymentChoice>(
   context: context,
   barrierDismissible: false,
   builder: (_) => _PaymentDialog(
-    ctrl: ctrl,                       // <-- pass it
-    partyId: _partyId!,
+    ctrl: ctrl,
+    partyId: effectivePartyId,
     orderTotalMinor: total,
+    hideStats: isWalkIn,   // ✅ don’t show pills for walk-in
   ),
 );
-
                   if (choice == null) return;
 
-                  // Create SO
+                  // ---------- Create SO ----------
                   final soId = await ctrl.createSalesOrder(
-                    partyId: _partyId!,
+                    partyId: effectivePartyId,
                     warehouseId: _defaultWarehouseId!,
                     soDate: _soDate,
                     items: items,
                   );
 
-                  // If cash, record payment
+                  // If there was a "use only for this order" draft (even when a real party is selected),
+                  // persist snapshot & attach SO-scoped draft now.
+                  final adopted = ctrl.consumePendingPartyDraft();
+                  if (adopted != null) {
+                    await ctrl.saveSoPartySnapshot(soId: soId, draft: adopted);
+                    ctrl.setSoPartyDraft(soId, adopted);
+                  }
+
+                  // ---------- Record payment if cash ----------
                   if (choice.mode == PaymentMode.cash) {
                     final amt = (choice.cashAmountMinor ?? 0);
                     if (amt > 0) {
                       final methodId = await ctrl.ensureCashMethod();
                       await ctrl.addPaymentForSalesOrder(
-                        partyId: _partyId!,
+                        partyId: effectivePartyId,
                         salesOrderId: soId,
                         methodId: methodId,
                         amountMinor: amt,
@@ -765,19 +780,19 @@ class _CreateSoTabState extends State<CreateSoTab> {
                       );
                     }
                   }
+
                   if (!mounted) return;
                   _snack(context, 'Sales Order $soId created');
 
-                  // Go to details page (shows all transactions + balances)
-                Navigator.of(context).push(
-  MaterialPageRoute(
-    builder: (_) => ChangeNotifierProvider.value(
-      value: context.read<SalesDispatchController>(),    // reuse existing instance
-      child: SalesOrderDetailsPage(soId: soId),
-    ),
-  ),
-);
-
+                  // ---------- Navigate to details page ----------
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChangeNotifierProvider.value(
+                        value: context.read<SalesDispatchController>(),
+                        child: SalesOrderDetailsPage(soId: soId),
+                      ),
+                    ),
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
@@ -793,56 +808,6 @@ class _CreateSoTabState extends State<CreateSoTab> {
       ),
     );
   }
-
-  Future<void> _openAddCustomer() async {
-    final ctrl = context.read<SalesDispatchController>();
-    final result = await showDialog<Party>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _AddCustomerDialog(ctrl: ctrl),
-    );
-    if (result != null) {
-      final customers = await ctrl.fetchCustomers();
-      setState(() {
-        _customers = customers;
-        _partyId = result.id;
-      });
-      _snack(context, 'Customer added');
-    }
-  }
-Party? _draftParty;
-Party? _draftCustomerOverride; // shows unsaved edits in UI (optional)
-
-
-
-
-Future<void> _openEditCustomer() async {
-  final ctrl = context.read<SalesDispatchController>();
-  // pick current displayed party (draft if exists, else selected)
-  final base = _draftCustomerOverride ?? _customers.firstWhere((p) => p.id == _partyId);
-  final res = await showDialog<EditCustomerResult>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => _EditCustomerDialog(ctrl: ctrl, party: base),
-  );
-  if (res == null) return;
-
-  if (res.saved) {
-  // persisted -> refresh and clear the draft
-  final refreshed = await ctrl.fetchCustomers();
-  setState(() {
-    _customers = refreshed;
-    _draftCustomerOverride = null;
-  });
-  ctrl.clearPartyDraft(res.party.id);        // <— clear in controller too
-  _snack(context, 'Customer updated');
-} else {
-  // local only -> keep draft both locally and in controller
-  setState(() => _draftCustomerOverride = res.party);
-  ctrl.setPartyDraft(res.party);             // <— makes it available app-wide
-  _snack(context, 'Using local changes (not saved)');
-}
-}
 
   Widget _dateField(BuildContext context, InputDecoration Function(String) box) {
     return TextFormField(
@@ -1431,7 +1396,14 @@ class _PaymentDialog extends StatefulWidget {
   final SalesDispatchController ctrl;
   final int partyId;
   final int orderTotalMinor;
-  const _PaymentDialog({required this.ctrl, required this.partyId, required this.orderTotalMinor});
+  final bool hideStats; // ✅ NEW
+
+  const _PaymentDialog({
+    required this.ctrl,
+    required this.partyId,
+    required this.orderTotalMinor,
+    this.hideStats = false,        // ✅ default: show stats
+  });
 
   @override
   State<_PaymentDialog> createState() => _PaymentDialogState();
@@ -1446,8 +1418,8 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   void initState() {
     super.initState();
     _amountCtrl.text = widget.orderTotalMinor.toString();
-    _statsF = widget.ctrl.getPartyStats(widget.partyId);
-    
+    // ✅ Only fetch stats when we actually want to show them
+    _statsF = widget.hideStats ? null : widget.ctrl.getPartyStats(widget.partyId);
   }
 
   @override
@@ -1456,19 +1428,127 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     super.dispose();
   }
 
-  String _inr(int n) => _inrFmt(n);
-  static String _inrFmt(int n) {
+  String _inr(int n) {
     final s = n.toString();
     if (s.length <= 3) return '₹$s';
     final head = s.substring(0, s.length - 3);
     final tail = s.substring(s.length - 3);
-    final headWithCommas = head.replaceAllMapped(RegExp(r'(\d)(?=(\d{2})+(?!\d))'), (m) => '${m[1]},');
+    final headWithCommas = head.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{2})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
     return '₹$headWithCommas,$tail';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    Widget content({PartyStats? s}) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: [
+            Text('Payment', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+            const Spacer(),
+            IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+          ]),
+          const SizedBox(height: 8),
+
+          // ✅ Show the three pills only when stats are enabled AND loaded
+          if (!widget.hideStats && s == null) const LinearProgressIndicator(minHeight: 2),
+          if (!widget.hideStats && s != null)
+            Wrap(
+              spacing: 8, runSpacing: 8,
+              children: [
+                _pill('Lifetime Sales', _inr(s.lifetimeSales)),
+                _pill('Paid In', _inr(s.paidIn)),
+                _pill('Previous Due', _inr(s.due)),
+              ],
+            ),
+
+          const SizedBox(height: 16),
+
+          // ---- Mode tiles (always visible) ----
+          _modeTile(PaymentMode.cash, 'Cash (collect now)'),
+          if (_mode == PaymentMode.cash) ...[
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _amountCtrl,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Amount to collect now',
+                filled: true,
+                fillColor: theme.colorScheme.surfaceVariant.withOpacity(.4),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Order Total: ${_inr(widget.orderTotalMinor)}',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 8),
+          _modeTile(PaymentMode.credit, 'Credit (add to receivables)'),
+
+          // ✅ “New Due …” only when stats are enabled & available
+          if (_mode == PaymentMode.credit && !widget.hideStats && s != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'New Due after this order: ${_inr(s.due + widget.orderTotalMinor)}',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(
+              child: FilledButton(
+                onPressed: () {
+                  int? amt;
+                  if (_mode == PaymentMode.cash) {
+                    amt = int.tryParse(_amountCtrl.text.trim());
+                    if (amt == null || amt < 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Enter a valid amount')),
+                      );
+                      return;
+                    }
+                  }
+                  Navigator.pop(context, _PaymentChoice(mode: _mode, cashAmountMinor: amt));
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Continue'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                child: const Text('Cancel', style: TextStyle(color: Colors.black)),
+              ),
+            ),
+          ]),
+        ],
+      );
+    }
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -1476,94 +1556,12 @@ class _PaymentDialogState extends State<_PaymentDialog> {
         constraints: const BoxConstraints(maxWidth: 560),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(children: [
-                Text('Payment', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                const Spacer(),
-                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
-              ]),
-              const SizedBox(height: 8),
-              FutureBuilder<PartyStats>(
-                future: _statsF,
-                builder: (context, snap) {
-                  final s = snap.data;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (s == null) const LinearProgressIndicator(minHeight: 2),
-                      if (s != null) Wrap(
-                        spacing: 8, runSpacing: 8,
-                        children: [
-                          _pill('Lifetime Sales', _inr(s.lifetimeSales)),
-                          _pill('Paid In', _inr(s.paidIn)),
-                          _pill('Previous Due', _inr(s.due)),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _modeTile(PaymentMode.cash, 'Cash (collect now)'),
-                      if (_mode == PaymentMode.cash) ...[
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _amountCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Amount to collect now',
-                            filled: true,
-                            fillColor: theme.colorScheme.surfaceVariant.withOpacity(.4),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text('Order Total: ${_inr(widget.orderTotalMinor)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-                      ],
-                      const SizedBox(height: 8),
-                      _modeTile(PaymentMode.credit, 'Credit (add to receivables)'),
-                      if (_mode == PaymentMode.credit && s != null) ...[
-                        const SizedBox(height: 6),
-                        Text('New Due after this order: ${_inr(s.due + widget.orderTotalMinor)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-                      ],
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(children: [
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () {
-                      int? amt;
-                      if (_mode == PaymentMode.cash) {
-                        amt = int.tryParse(_amountCtrl.text.trim());
-                        if (amt == null || amt < 0) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid amount')));
-                          return;
-                        }
-                      }
-                      Navigator.pop(context, _PaymentChoice(mode: _mode, cashAmountMinor: amt));
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.black, foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: const Text('Continue'),
-                  ),
+          child: widget.hideStats
+              ? content(s: null)
+              : FutureBuilder<PartyStats>(
+                  future: _statsF,
+                  builder: (_, snap) => content(s: snap.data),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
-                    child: const Text('Cancel', style: TextStyle(color: Colors.black)),
-                  ),
-                ),
-              ]),
-            ],
-          ),
         ),
       ),
     );
@@ -1594,95 +1592,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     );
   }
 }
-class CustomerPickerFormField extends FormField<int?> {
-  CustomerPickerFormField({
-    super.key,
-    required List<Party> customers,
-    int? initialValue,
-    String labelText = '',
-    FormFieldValidator<int?>? validator,
-    ValueChanged<int?>? onChanged,
-    bool enabled = true,
-  }) : super(
-          initialValue: initialValue,
-          validator: validator ?? (v) => v == null ? 'Select customer' : null,
-          builder: (state) {
-            final theme = Theme.of(state.context);
-            // Resolve selected name
-            String selectedName = 'Select customer';
-            if (state.value != null) {
-              final p = customers.firstWhere(
-                (e) => e.id == state.value,
-                orElse: () => Party(
-                  id: -1,
-                  orgId: -1,
-                  name: '',
-                  phone: null,
-                  email: null,
-                  gstin: null,
-                  address: null,
-                  farmName: null,
-                  partyType: PartyType.customer,
-                  createdAt: null,
-                  updatedAt: null,
-                ),
-              );
-              if (p.id != -1) selectedName = p.name;
-            }
 
-            Future<void> _openSheet() async {
-              if (!enabled) return;
-              final picked = await showModalBottomSheet<Party>(
-                context: state.context,
-                isScrollControlled: true,
-                builder: (_) => _CustomerPickerSheet(customers: customers),
-              );
-              if (picked != null) {
-                state.didChange(picked.id);
-                onChanged?.call(picked.id);
-              }
-            }
-
-            final errorText = state.errorText;
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: _openSheet,
-                  child: InputDecorator(
-                    isEmpty: state.value == null,
-                    decoration: InputDecoration(
-                      labelText: labelText,
-                      isDense: true,
-                      filled: true,
-                      enabled: enabled,
-                      fillColor: Colors.grey.shade100,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      errorText: errorText,
-                      suffixIcon: const Icon(Icons.search),
-                    ),
-                    child: Text(
-                      selectedName,
-                      style: TextStyle(
-                        color: selectedName == 'Select customer'
-                            ? theme.colorScheme.onSurfaceVariant
-                            : theme.colorScheme.onSurface,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-}
 
 class _CustomerPickerSheet extends StatefulWidget {
   const _CustomerPickerSheet({required this.customers});
@@ -1802,4 +1712,460 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
         : Text(chips.join('  •  '), maxLines: 1, overflow: TextOverflow.ellipsis);
   }
 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+class CustomerInlineEditor extends StatefulWidget {
+  const CustomerInlineEditor({
+    super.key,
+    required this.customers,
+    required this.ctrl,
+    this.initial,
+    this.soId,                   // ← optional: if present we persist a snapshot immediately
+    required this.onPick,        // when user selects an existing suggestion
+    required this.onSaved,       // after create/update to DB
+    this.onDraft,                // when user chooses "use for this order only"
+  });
+
+  final List<Party> customers;
+  final SalesDispatchController ctrl;
+  final Party? initial;
+  final int? soId;                           // ← NEW
+  final ValueChanged<Party> onPick;
+  final ValueChanged<Party> onSaved;
+  final ValueChanged<Party>? onDraft;
+
+  @override
+  State<CustomerInlineEditor> createState() => _CustomerInlineEditorState();
+}
+
+class _CustomerInlineEditorState extends State<CustomerInlineEditor> {
+  // Search + focus
+  final _search = TextEditingController();
+  final _searchFocus = FocusNode();
+
+  // Fields
+  final _name   = TextEditingController();
+  final _phone  = TextEditingController();
+  final _gstin  = TextEditingController();
+  final _email  = TextEditingController();
+  final _farm   = TextEditingController();
+  final _addr   = TextEditingController();
+
+  // touch flags
+  bool _touchedName = false;
+  bool _touchedPhone = false;
+  bool _touchedGstin = false;
+
+  Party? _selected;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initial != null) {
+      _selected = widget.initial;
+      _fillFromParty(widget.initial!);
+      _search.text = _displayParty(widget.initial!);
+    }
+    _search.addListener(_mirrorSearchIntoFields);
+    _name.addListener(() => _touchedName = true);
+    _phone.addListener(() => _touchedPhone = true);
+    _gstin.addListener(() => _touchedGstin = true);
+  }
+
+  @override
+  void dispose() {
+    _searchFocus.dispose();
+    _search.dispose();
+    _name.dispose();
+    _phone.dispose();
+    _gstin.dispose();
+    _email.dispose();
+    _farm.dispose();
+    _addr.dispose();
+    super.dispose();
+  }
+
+  /* ---------------- Helpers ---------------- */
+
+  void _fillFromParty(Party p) {
+    _name.text  = p.name;
+    _phone.text = (p.phone ?? '');
+    _gstin.text = (p.gstin ?? '');
+    _email.text = (p.email ?? '');
+    _farm.text  = (p.farmName ?? '');
+    _addr.text  = (p.address ?? '');
+  }
+
+  String _displayParty(Party p) {
+    final phone = (p.phone ?? '').isEmpty ? '' : ' • ${p.phone}';
+    return '${p.name}$phone';
+  }
+
+  Iterable<Party> _filter(String q) {
+    final qq = q.trim().toLowerCase();
+    if (qq.isEmpty) return const Iterable<Party>.empty();
+    bool match(String? s) => (s ?? '').toLowerCase().contains(qq);
+    return widget.customers.where((p) =>
+      match(p.name) || match(p.phone) || match(p.farmName) || match(p.gstin)
+    ).take(12);
+  }
+
+  InputDecoration _box(BuildContext ctx, String hint) => InputDecoration(
+    hintText: hint,
+    isDense: true,
+    filled: true,
+    fillColor: Colors.grey.shade100,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide.none,
+    ),
+  );
+
+  String _toTitleCase(String s) =>
+      s.split(' ')
+       .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+       .join(' ');
+
+  // Autofill name/phone/gstin from search text until user edits / picks
+  void _mirrorSearchIntoFields() {
+    if (_selected != null) return;
+
+    final raw = _search.text.trim();
+    if (raw.isEmpty) return;
+
+    final gstMatch = RegExp(r'\b[0-9]{2}[A-Z0-9]{10}[A-Z0-9]{3}\b', caseSensitive: false).firstMatch(raw);
+    final phoneMatch = RegExp(r'\b\d{7,}\b').firstMatch(raw);
+
+    var remaining = raw;
+
+    if (gstMatch != null) {
+      final gst = gstMatch.group(0)!.toUpperCase();
+      if (!_touchedGstin && _gstin.text.isEmpty) _gstin.text = gst;
+      remaining = remaining.replaceFirst(gstMatch.group(0)!, '').trim();
+    }
+
+    if (phoneMatch != null) {
+      var ph = phoneMatch.group(0)!;
+      if (ph.length > 10) ph = ph.substring(ph.length - 10);
+      if (!_touchedPhone && _phone.text.isEmpty) _phone.text = ph;
+      remaining = remaining.replaceFirst(phoneMatch.group(0)!, '').trim();
+    }
+
+    remaining = remaining
+        .replaceAll(RegExp(r'[-|,]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    if (remaining.isNotEmpty && !_touchedName) {
+      _name.text = _toTitleCase(remaining);
+    }
+  }
+
+  // Build a loose draft (no DB id)
+  Party _buildLooseDraft() {
+    final name  = _name.text.trim();
+    final phone = _phone.text.trim();
+    final gstin = _gstin.text.trim().isEmpty ? null : _gstin.text.trim().toUpperCase();
+    final email = _email.text.trim().isEmpty ? null : _email.text.trim();
+    final farm  = _farm.text.trim().isEmpty  ? null : _farm.text.trim();
+    final addr  = _addr.text.trim().isEmpty  ? null : _addr.text.trim();
+
+    return Party(
+      id: -1,
+      orgId: widget.ctrl.orgId,
+      name: name,
+      phone: phone.isEmpty ? null : phone,
+      email: email,
+      gstin: gstin,
+      address: addr,
+      farmName: farm,
+      partyType: PartyType.customer,
+      createdAt: null,
+      updatedAt: null,
+    );
+  }
+
+  // Build a draft based on a selected Party row
+  Party? _buildDraftFromFields() {
+    if (_selected == null) return null;
+    final name  = _name.text.trim();
+    final phone = _phone.text.trim();
+    final gstin = _gstin.text.trim().isEmpty ? null : _gstin.text.trim().toUpperCase();
+    final email = _email.text.trim().isEmpty ? null : _email.text.trim();
+    final farm  = _farm.text.trim().isEmpty  ? null : _farm.text.trim();
+    final addr  = _addr.text.trim().isEmpty  ? null : _addr.text.trim();
+
+    return Party(
+      id: _selected!.id,
+      orgId: _selected!.orgId,
+      name: name.isEmpty ? _selected!.name : name,
+      phone: phone.isEmpty ? null : phone,
+      email: email,
+      gstin: gstin,
+      address: addr,
+      farmName: farm,
+      partyType: _selected!.partyType,
+      createdAt: _selected!.createdAt,
+      updatedAt: _selected!.updatedAt,
+    );
+  }
+
+  Future<void> _saveToDb() async {
+    final name  = _name.text.trim();
+    final phone = _phone.text.trim(); // optional in UI (empty allowed)
+    final gstin = _gstin.text.trim().isEmpty ? null : _gstin.text.trim().toUpperCase();
+    final email = _email.text.trim().isEmpty ? null : _email.text.trim();
+    final farm  = _farm.text.trim().isEmpty  ? null : _farm.text.trim();
+    final addr  = _addr.text.trim().isEmpty  ? null : _addr.text.trim();
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name is required')));
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      if (_selected == null) {
+        // CREATE (phone is optional in UI; controller accepts empty string fine)
+        final p = await widget.ctrl.addCustomer(
+          phone: phone,
+          name: name,
+          gstin: gstin,
+          email: email,
+          farmName: farm,
+          address: addr,
+        );
+        widget.onSaved(p);
+        setState(() { _selected = p; _search.text = _displayParty(p); });
+      } else {
+        // UPDATE
+        final p = await widget.ctrl.updateCustomer(
+          id: _selected!.id,
+          name: name,
+          phone: phone,
+          gstin: gstin,
+          email: email,
+          farmName: farm,
+          address: addr,
+        );
+        widget.onSaved(p);
+        setState(() { _selected = p; _search.text = _displayParty(p); });
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  // Use only for this order
+  Future<void> _useForThisOrderOnly() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name is required')));
+      return;
+    }
+
+    // Build the draft from current fields
+    final Party draft = _selected != null ? _buildDraftFromFields()! : _buildLooseDraft();
+
+    // If we already know the SO id, persist snapshot and attach as SO-scoped draft.
+    if (widget.soId != null) {
+      await widget.ctrl.saveSoPartySnapshot(
+        soId: widget.soId!,
+      draft: draft
+      );
+      widget.ctrl.setSoPartyDraft(widget.soId!, draft);
+      widget.onDraft?.call(draft);
+    } else {
+      // No SO yet → keep as pending draft to adopt after SO is created.
+      widget.ctrl.setPendingPartyDraft(draft);
+      widget.onDraft?.call(draft);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Using customer details for this order only')),
+      );
+    }
+  }
+
+  void _clearAll() {
+    setState(() { _selected = null; });
+    _search.clear();
+    _name.clear();
+    _phone.clear();
+    _gstin.clear();
+    _email.clear();
+    _farm.clear();
+    _addr.clear();
+    _touchedName = _touchedPhone = _touchedGstin = false;
+  }
+
+  /* ---------------- UI ---------------- */
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Search + suggestions
+        RawAutocomplete<Party>(
+          textEditingController: _search,
+          focusNode: _searchFocus,
+          optionsBuilder: (t) => _filter(t.text),
+          displayStringForOption: _displayParty,
+          onSelected: (p) {
+            setState(() { _selected = p; });
+            _fillFromParty(p);
+            widget.onPick(p);
+          },
+          fieldViewBuilder: (_, controller, focusNode, onFieldSubmitted) {
+            return TextField(
+              controller: controller,
+              focusNode: focusNode,
+              decoration: _box(context, 'Search name / phone / GSTIN'),
+            );
+          },
+          optionsViewBuilder: (_, onSelected, options) {
+            final list = options.toList();
+            return Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(10),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 280),
+                child: ListView.separated(
+                  padding: EdgeInsets.zero,
+                  itemCount: list.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final p = list[i];
+                    final subtitleBits = <String>[
+                      if ((p.phone ?? '').isNotEmpty) p.phone!,
+                      if ((p.farmName ?? '').isNotEmpty) 'Farm: ${p.farmName}',
+                      if ((p.gstin ?? '').isNotEmpty) 'GST: ${p.gstin}',
+                    ];
+                    return ListTile(
+                      dense: true,
+                      title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: subtitleBits.isEmpty
+                          ? null
+                          : Text(
+                              subtitleBits.join('  •  '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => onSelected(p),
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+
+        const SizedBox(height: 10),
+
+        // Fields
+        isMobile
+            ? Column(children: _fields(context))
+            : Row(
+                children: [
+                  Expanded(child: Column(children: _fieldsLeft(context))),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(children: _fieldsRight(context))),
+                ],
+              ),
+
+        const SizedBox(height: 12),
+
+        // Actions
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _saveToDb,
+                icon: const Icon(Icons.save),
+                label: Text(_selected == null ? 'Create Customer' : 'Update Customer'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _saving ? null : _useForThisOrderOnly,
+                icon: const Icon(Icons.visibility),
+                label: const Text('Use for this order only'),
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            OutlinedButton(onPressed: _saving ? null : _clearAll, child: const Text('Clear')),
+          ],
+        ),
+
+        if (_selected != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.check_circle, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 6),
+              Text('Selected: ${_selected!.name}', style: theme.textTheme.bodyMedium),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<Widget> _fields(BuildContext ctx) => [
+        TextField(controller: _name,  decoration: _box(ctx, 'Name *')),
+        const SizedBox(height: 8),
+        TextField(controller: _phone, decoration: _box(ctx, 'Phone (optional)'), keyboardType: TextInputType.phone),
+        const SizedBox(height: 8),
+        TextField(controller: _gstin, decoration: _box(ctx, 'GSTIN (optional)')),
+        const SizedBox(height: 8),
+        TextField(controller: _email, decoration: _box(ctx, 'Email (optional)')),
+        const SizedBox(height: 8),
+        TextField(controller: _farm,  decoration: _box(ctx, 'Farm name (optional)')),
+        const SizedBox(height: 8),
+        TextField(controller: _addr,  decoration: _box(ctx, 'Address (optional)'), maxLines: 2),
+      ];
+
+  List<Widget> _fieldsLeft(BuildContext ctx) => [
+        TextField(controller: _name,  decoration: _box(ctx, 'Name *')),
+        const SizedBox(height: 8),
+        TextField(controller: _phone, decoration: _box(ctx, 'Phone (optional)'), keyboardType: TextInputType.phone),
+        const SizedBox(height: 8),
+        TextField(controller: _gstin, decoration: _box(ctx, 'GSTIN (optional)')),
+      ];
+
+  List<Widget> _fieldsRight(BuildContext ctx) => [
+        TextField(controller: _email, decoration: _box(ctx, 'Email (optional)')),
+        const SizedBox(height: 8),
+        TextField(controller: _farm,  decoration: _box(ctx, 'Farm name (optional)')),
+        const SizedBox(height: 8),
+        TextField(controller: _addr,  decoration: _box(ctx, 'Address (optional)'), maxLines: 2),
+      ];
 }
