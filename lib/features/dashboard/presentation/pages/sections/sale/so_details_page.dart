@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:bhago/app/data/local_database.dart';
 import 'package:bhago/features/dashboard/controller/sales_dispatch_controller.dart';
+
+
 
 class SalesOrderDetailsPage extends StatelessWidget {
   final int soId;
@@ -11,26 +12,7 @@ class SalesOrderDetailsPage extends StatelessWidget {
   bool _isWalkInName(String? name) {
     if (name == null) return false;
     final norm = name.trim().toLowerCase().replaceAll(RegExp(r'[-\s]+'), ' ');
-    // Covers: "Walk-in Customer", "Walk in Customer", "Walk-in..."
     return norm == 'walk in customer' || norm.startsWith('walk in');
-  }
-
-  SoHeaderVM _applyDraft(SoHeaderVM base, Party? d) {
-    if (d == null) return base;
-    return SoHeaderVM(
-      id: base.id,
-      soDate: base.soDate,
-      status: base.status,
-      subtotalMinor: base.subtotalMinor,
-      taxMinor: base.taxMinor,
-      totalMinor: base.totalMinor,
-      partyId: base.partyId,
-      partyName: d.name,
-      phone: d.phone,
-      gstin: d.gstin,
-      address: d.address,
-      farmName: d.farmName,
-    );
   }
 
   @override
@@ -46,20 +28,17 @@ class SalesOrderDetailsPage extends StatelessWidget {
       body: FutureBuilder<SoHeaderVM>(
         future: ctrl.loadSoHeader(soId),
         builder: (context, snap) {
-          if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
 
-          // Apply SO-scoped draft (from "Use for this order only") on top of DB header
-          final soDraft = ctrl.soDraftFor(soId);
-          final headerForUi = _applyDraft(snap.data!, soDraft);
-          final isWalkIn = _isWalkInName(headerForUi.partyName);
+          // ✅ Use ONLY DB data (no draft overlay)
+          final header = snap.data!;
+          final isWalkIn = _isWalkInName(header.partyName);
 
           return Padding(
             padding: const EdgeInsets.all(16),
             child: ListView(
               children: [
-                _HeaderCard(header: headerForUi),
+                _HeaderCard(header: header),
                 const SizedBox(height: 16),
 
                 // Items
@@ -75,7 +54,7 @@ class SalesOrderDetailsPage extends StatelessWidget {
                 // Party balance summary (HIDDEN for Walk-in)
                 if (!isWalkIn)
                   FutureBuilder<PartyStats>(
-                    future: ctrl.getPartyStats(headerForUi.partyId),
+                    future: ctrl.getPartyStats(header.partyId),
                     builder: (context, stSnap) {
                       if (!stSnap.hasData) {
                         return const Card(
@@ -87,21 +66,21 @@ class SalesOrderDetailsPage extends StatelessWidget {
                       }
                       final s = stSnap.data!;
                       return _PartyBalanceCard(
-                        partyName: headerForUi.partyName,
+                        partyName: header.partyName,
                         currentDue: s.due,
-                        thisOrder: headerForUi.totalMinor,
+                        thisOrder: header.totalMinor,
                       );
                     },
                   ),
 
                 if (!isWalkIn) const SizedBox(height: 16),
 
-                // Payments for THIS order (still useful for Walk-in)
+                // Payments for THIS order
                 _PaymentsCard(soId: soId),
                 const SizedBox(height: 16),
 
                 // FULL PARTY LEDGER (HIDDEN for Walk-in)
-                if (!isWalkIn) _LedgerCard(partyId: headerForUi.partyId),
+                if (!isWalkIn) _LedgerCard(partyId: header.partyId),
               ],
             ),
           );
@@ -110,6 +89,12 @@ class SalesOrderDetailsPage extends StatelessWidget {
     );
   }
 }
+
+/* ---- existing cards below remain unchanged (Header/Items/Balance/Payments/Ledger) ---- */
+
+// ... keep your _HeaderCard, _ItemsCard, _PartyBalanceCard, _PaymentsCard, _LedgerCard
+// exactly as you have them; they work with the updated header now.
+
 
 /* ---------------------- Existing cards (unchanged) ---------------------- */
 

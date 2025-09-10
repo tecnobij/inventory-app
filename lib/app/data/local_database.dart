@@ -1,4 +1,3 @@
-// lib/app/data/local_database.dart
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
@@ -35,7 +34,19 @@ class EnumIndexConverter<T extends Enum> extends TypeConverter<T, int> {
 /// ====================================
 // lib/app/data/local_database.dart (tables file)
 
+class SoPartySnapshots extends Table {
+  IntColumn get soId => integer().references(SalesOrders, #id)();
 
+  TextColumn get name     => text().nullable()();
+  TextColumn get phone    => text().nullable()();
+  TextColumn get email    => text().nullable()();
+  TextColumn get gstin    => text().nullable()();
+  TextColumn get address  => text().nullable()();
+  TextColumn get farmName => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {soId};
+}
 
 class Organizations extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -398,19 +409,19 @@ class FavoriteActions extends Table {
       )();
   IntColumn get position => integer().named('position')();
 }
-class SoPartySnapshots extends Table {
-  IntColumn get soId => integer().references(SalesOrders, #id)();
 
-  TextColumn get name     => text().nullable()();
-  TextColumn get phone    => text().nullable()();
-  TextColumn get email    => text().nullable()();
-  TextColumn get gstin    => text().nullable()();
-  TextColumn get address  => text().nullable()();
-  TextColumn get farmName => text().nullable()();
 
-  @override
-  Set<Column> get primaryKey => {soId};
-}
+
+
+
+
+
+
+
+
+
+
+
 
 /// ======================
 /// Database + migrations
@@ -435,43 +446,43 @@ class SoPartySnapshots extends Table {
     NumberingPatterns,
     Actions,
     FavoriteActions,
-     SoPartySnapshots,
+
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  // ⬆️ bump schema when adding a table
+  // ⬆️ bump when you change tables/columns
   @override
-  int get schemaVersion => 3;   // ✅ was 2
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) async {
-      await m.createAll();
-    },
-    onUpgrade: (m, from, to) async {
-      // v1 -> v2: your existing parties changes
-      if (from < 2) {
-        await m.alterTable(TableMigration(
-          parties,
-          newColumns: [parties.address, parties.farmName],
-        ));
-      }
-      // v2 -> v3: create SoPartySnapshots
-      if (from < 3) {
-        // Prefer Drift helper:
-        try {
-          await m.createTable(soPartySnapshots);
-        } catch (_) {
-          // If table already exists (rare in dev), ignore
-        }
-      }
-    },
-    beforeOpen: (details) async {
-      await customStatement('PRAGMA foreign_keys = ON');
-    },
-  );
+        onCreate: (m) async {
+          await m.createAll();
+        },
+        onUpgrade: (m, from, to) async {
+          // v1 -> v2: add nullable columns to parties
+          if (from < 2) {
+            await m.alterTable(TableMigration(
+              parties,
+              // These must exist as columns on your Parties table class
+              newColumns: [parties.address, parties.farmName],
+            ));
+
+            // (Optional) If you want a unique index on numbering patterns per org
+            // await customStatement(
+            //   'CREATE UNIQUE INDEX IF NOT EXISTS ux_numbering_org_doctype '
+            //   'ON numbering_patterns(org_id, doc_type)'
+            // );
+          }
+        },
+        beforeOpen: (details) async {
+          // Enforce FK integrity in SQLite
+          await customStatement('PRAGMA foreign_keys = ON');
+        },
+      );
+
 }
 
 
