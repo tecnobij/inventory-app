@@ -497,3 +497,67 @@ LazyDatabase _openConnection() {
     );
   });
 }
+
+// =====================
+// Maintenance helpers
+// =====================
+extension DbMaintenance on AppDatabase {
+  /// Deletes only transactional data (keeps master data like products, parties, warehouses, etc.)
+  Future<void> wipeTransactionsOnly() async {
+    await transaction(() async {
+      // detail tables first
+      await delete(invoiceItems).go();
+      await delete(salesOrderItems).go();
+      await delete(quotationItems).go();
+
+      // snapshots before deleting sales orders (FK restrict)
+      await delete(soPartySnapshots).go();
+
+      // ledger-ish / balances
+      await delete(inventoryMoves).go();
+      await delete(productStocks).go();
+
+      // headers
+      await delete(invoices).go();
+      await delete(quotations).go();
+      await delete(payments).go();
+      await delete(salesOrders).go();
+
+      // (optional) reset sqlite autoincrement counters for these tables only
+      await customStatement('DELETE FROM sqlite_sequence WHERE name IN ('
+          "'invoice_items','sales_order_items','quotation_items',"
+          "'so_party_snapshots','inventory_moves','product_stocks',"
+          "'invoices','quotations','payments','sales_orders'"
+          ')');
+    });
+  }
+
+  /// Factory reset everything. By default keeps the Organizations row so onboarding stays intact.
+  Future<void> factoryReset({bool keepOrg = true}) async {
+    await transaction(() async {
+      // 1) everything transactional
+      await wipeTransactionsOnly();
+
+      // 2) app/master data – mind FK order
+      await delete(favoriteActions).go(); // must be before actions
+      await delete(actions).go();
+
+      await delete(numberingPatterns).go();
+      await delete(appSettings).go();
+
+      await delete(paymentMethods).go();
+
+      // masters that inventory referenced
+      await delete(products).go();
+      await delete(warehouses).go();
+      await delete(parties).go();
+
+      if (!keepOrg) {
+        await delete(organizations).go();
+      }
+
+      // reset all counters
+      await customStatement('DELETE FROM sqlite_sequence');
+    });
+  }
+}

@@ -1,5 +1,7 @@
 // lib/features/dashboard/presentation/setting_page.dart
+import 'package:bhago/app/data/local_database.dart';
 import 'package:bhago/features/dashboard/controller/auth_provider.dart';
+import 'package:bhago/features/dashboard/controller/sales_dispatch_controller.dart';
 import 'package:bhago/features/dashboard/controller/settings_controller.dart';
 import 'package:bhago/features/dashboard/presentation/dashboard_view.dart';
 import 'package:bhago/features/dashboard/presentation/pages/sections/welcome_auth_page.dart';
@@ -346,7 +348,7 @@ void didChangeDependencies() {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _title('GSTIN', req: true),
+                    _title('GSTIN', ),
                     TextFormField(
                       controller: _gstCtrl,
                       validator: gstin,
@@ -653,33 +655,8 @@ void didChangeDependencies() {
                   maxLines: 2,
                   validator: _req,
                 ),
-                const SizedBox(height: 12),
-                Text('Organization Logo',
-                    style: theme.textTheme.labelLarge
-                        ?.copyWith(color: theme.colorScheme.onSurface)),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _logoCtrl.text = 'company_logo.png';
-                          _dirty = true;
-                        });
-                      },
-                      icon: const Icon(Icons.upload_file_outlined),
-                      label: const Text('Choose file'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(child: _readOnlyChip(_logoCtrl.text)),
-                  ],
-                ),
+              
+                
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () async {
@@ -1005,263 +982,440 @@ void didChangeDependencies() {
     );
   }
 
-  Widget _appSettingsTab() {
-    final theme = Theme.of(context);
-    final wide = MediaQuery.of(context).size.width >= 900;
+Widget _appSettingsTab() {
+  final theme = Theme.of(context);
+  final wide = MediaQuery.of(context).size.width >= 900;
 
-    InputDecoration _filled([String? hint]) => InputDecoration(
-          hintText: hint,
-          isDense: true,
-          filled: true,
-          fillColor: theme.colorScheme.surfaceVariant.withOpacity(.45),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-        );
-
-    Widget _label(String s) =>
-        Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(s, style: theme.textTheme.labelLarge));
-
-    Widget _dropdown({
-      required String label,
-      required String value,
-      required List<String> options,
-      required ValueChanged<String> onChanged,
-    }) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _label(label),
-          DropdownButtonFormField<String>(
-            value: value,
-            items: options
-                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                .toList(),
-            onChanged: (v) => onChanged(v!),
-            decoration: _filled(),
-            borderRadius: BorderRadius.circular(12),
-            icon: const Icon(Icons.keyboard_arrow_down),
-          ),
-        ],
-      );
-    }
-
-    Widget _textField({
-      required String label,
-      required TextEditingController controller,
-      TextInputType? keyboardType,
-    }) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _label(label),
-          TextFormField(
-            controller: controller,
-            keyboardType: keyboardType,
-            decoration: _filled(),
-          ),
-        ],
-      );
-    }
-
-    Widget _notificationsTile() {
-      return Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: theme.colorScheme.outlineVariant),
+  InputDecoration _filled([String? hint]) => InputDecoration(
+        hintText: hint,
+        isDense: true,
+        filled: true,
+        fillColor: theme.colorScheme.surfaceVariant.withOpacity(.45),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
         ),
-        child: Row(
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      );
+
+  Widget _label(String s) =>
+      Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(s, style: theme.textTheme.labelLarge));
+
+  Widget _dropdown({
+    required String label,
+    required String value,
+    required List<String> options,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(label),
+        DropdownButtonFormField<String>(
+          value: value,
+          items: options.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+          onChanged: (v) => onChanged(v!),
+          decoration: _filled(),
+          borderRadius: BorderRadius.circular(12),
+          icon: const Icon(Icons.keyboard_arrow_down),
+        ),
+      ],
+    );
+  }
+
+  Widget _textField({
+    required String label,
+    required TextEditingController controller,
+    TextInputType? keyboardType,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(label),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          decoration: _filled(),
+        ),
+      ],
+    );
+  }
+
+  Widget _notificationsTile() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Notifications', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text(
+                  'Receive notifications for low stock, payments due, etc.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: _notif,
+            onChanged: (v) => setState(() => _notif = v),
+            activeTrackColor: Colors.black,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(Widget a, Widget b) => wide
+      ? Row(children: [Expanded(child: a), const SizedBox(width: 16), Expanded(child: b)])
+      : Column(children: [a, const SizedBox(height: 12), b]);
+
+  return ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      _SectionCard(
+        header: const _CardHeader(
+          title: 'Application Settings',
+          leadingIcon: Icons.notifications_outlined,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Notifications',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Receive notifications for low stock, payments due, etc.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                ],
+            _row(
+              _dropdown(
+                label: 'Currency',
+                value: _currency,
+                options: _currencyOpts,
+                onChanged: (v) => setState(() => _currency = v),
+              ),
+              _dropdown(
+                label: 'Date Format',
+                value: _dateFmt,
+                options: _dateFmtOpts,
+                onChanged: (v) => setState(() => _dateFmt = v),
               ),
             ),
-            Switch.adaptive(
-              value: _notif,
-              onChanged: (v) => setState(() => _notif = v),
-              activeTrackColor: Colors.black,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            const SizedBox(height: 14),
+            _row(
+              _dropdown(
+                label: 'Default GST %',
+                value: _gstPct,
+                options: _gstOpts,
+                onChanged: (v) => setState(() => _gstPct = v),
+              ),
+              _textField(
+                label: 'Low Stock Threshold',
+                controller: _lowStockCtrl,
+                keyboardType: TextInputType.number,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _notificationsTile(),
+            const SizedBox(height: 16),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () async {
+                final pct = int.tryParse(_gstPct.replaceAll('%', '').trim()) ?? 0;
+                final low = int.tryParse(_lowStockCtrl.text.trim()) ?? 0;
+
+                await context.read<SettingsProvider>().saveAppSettings(
+                      currency: _currency,
+                      dateFormat: _dateFmt,
+                      defaultGstPct: pct,
+                      lowStockWarn: low,
+                      notifications: _notif,
+                    );
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('App settings saved')),
+                );
+              },
+              child: const Text('Save App Settings'),
             ),
           ],
         ),
-      );
-    }
+      ),
 
-    Widget _row(Widget a, Widget b) => wide
-        ? Row(children: [
-            Expanded(child: a),
-            const SizedBox(width: 16),
-            Expanded(child: b)
-          ])
-        : Column(children: [a, const SizedBox(height: 12), b]);
+      const SizedBox(height: 16),
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _SectionCard(
-          header: const _CardHeader(
-            title: 'Application Settings',
-            leadingIcon: Icons.notifications_outlined,
+      // =======================
+      // DANGER ZONE
+      // =======================
+      _SectionCard(
+        header: const _CardHeader(
+          title: 'Danger Zone',
+          leadingIcon: Icons.warning_amber_rounded,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(.04),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.red.shade200),
           ),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _row(
-                _dropdown(
-                  label: 'Currency',
-                  value: _currency,
-                  options: _currencyOpts,
-                  onChanged: (v) => setState(() => _currency = v),
-                ),
-                _dropdown(
-                  label: 'Date Format',
-                  value: _dateFmt,
-                  options: _dateFmtOpts,
-                  onChanged: (v) => setState(() => _dateFmt = v),
-                ),
+              Text('Erase data', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text(
+                'This cannot be undone. You can wipe only transactions (orders, invoices, payments, stock moves, balances) '
+                'or perform a full factory reset (masters and settings too).',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
-              const SizedBox(height: 14),
-              _row(
-                _dropdown(
-                  label: 'Default GST %',
-                  value: _gstPct,
-                  options: _gstOpts,
-                  onChanged: (v) => setState(() => _gstPct = v),
-                ),
-                _textField(
-                  label: 'Low Stock Threshold',
-                  controller: _lowStockCtrl,
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _notificationsTile(),
-              const SizedBox(height: 16),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () async {
-                  final pct = int.tryParse(
-                          _gstPct.replaceAll('%', '').trim()) ??
-                      0;
-                  final low =
-                      int.tryParse(_lowStockCtrl.text.trim()) ?? 0;
-
-                  await context.read<SettingsProvider>().saveAppSettings(
-                        currency: _currency,
-                        dateFormat: _dateFmt,
-                        defaultGstPct: pct,
-                        lowStockWarn: low,
-                        notifications: _notif,
-                      );
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('App settings saved')),
-                  );
-                },
-                child: const Text('Save App Settings'),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => _confirmErase(factoryReset: true),
+                    icon: const Icon(Icons.delete_forever_outlined),
+                    label: const Text('Erase ALL data'),
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red.shade700,
+                      side: BorderSide(color: Colors.red.shade300),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => _confirmErase(factoryReset: false),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Erase TRANSACTIONS only'),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-      ],
+      ),
+    ],
+  );
+}
+Future<void> _confirmErase({required bool factoryReset}) async {
+  final db = context.read<AppDatabase>();
+  bool alsoDeleteOrg = false;
+  final tc = TextEditingController();
+
+  final ok = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(factoryReset ? 'Erase ALL data' : 'Erase transactions only'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                factoryReset
+                    ? 'This will permanently delete EVERYTHING (products, parties, warehouses, numbering, settings, and all transactions).'
+                    : 'This will permanently delete orders, invoices, payments, stock moves/balances, and party snapshots. Masters are kept.',
+              ),
+              const SizedBox(height: 12),
+              if (factoryReset)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Also remove Organization (requires full onboarding again)'),
+                  value: alsoDeleteOrg,
+                  onChanged: (v) => setD(() => alsoDeleteOrg = v ?? false),
+                ),
+              const SizedBox(height: 8),
+              const Text('Type ERASE to confirm:'),
+              const SizedBox(height: 6),
+              TextField(
+                controller: tc,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'ERASE',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                if (tc.text.trim().toUpperCase() != 'ERASE') return;
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+
+  if (ok == true) {
+    try {
+      if (factoryReset) {
+        await db.factoryReset(keepOrg: !alsoDeleteOrg);
+      } else {
+        await db.wipeTransactionsOnly();
+      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(factoryReset ? 'All data erased.' : 'Transactional data erased.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erase failed: $e')),
+      );
+    }
+  }
+}
+
+
+Widget _usersTab() {
+  final theme = Theme.of(context);
+  final ctrl  = context.watch<SalesDispatchController>();
+
+  void _openAdd() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => ChangeNotifierProvider.value(
+        value: ctrl,
+        child: _AddEditUserSheet(),
+      ),
     );
   }
 
-  Widget _usersTab() {
-    final theme = Theme.of(context);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _SectionCard(
-          child: Center(
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(vertical: 36, horizontal: 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+  return Column(
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: Row(
+          children: [
+            Text('User Management',
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+            const Spacer(),
+            FilledButton.icon(
+              onPressed: _openAdd,
+              icon: const Icon(Icons.add),
+              label: const Text('Add User'),
+            ),
+          ],
+        ),
+      ),
+      Expanded(
+        child: StreamBuilder<List<AppUserVM>>(
+          stream: ctrl.watchUsers(),
+          builder: (context, snap) {
+            final users = snap.data ?? const <AppUserVM>[];
+            if (snap.hasError) {
+              return Center(child: Text('Error: ${snap.error}', style: const TextStyle(color: Colors.red)));
+            }
+            if (users.isEmpty) {
+              return ListView(
+                padding: const EdgeInsets.all(16),
                 children: [
-                  Icon(
-                    Icons.groups_rounded,
-                    size: 56,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'User Management',
-                    style: theme.textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Manage users and roles for your organization',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  FilledButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add User (Coming Soon)'),
-                    style: FilledButton.styleFrom(
-                      disabledBackgroundColor: const Color(0xFF6B7280),
-                      disabledForegroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'User management and role-based access control will be available soon',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  _SectionCard(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.groups_rounded, size: 56, color: theme.colorScheme.onSurfaceVariant),
+                          const SizedBox(height: 12),
+                          Text('No users yet', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          Text('Add your first user to grant access or track staff.',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton.icon(
+                            onPressed: _openAdd,
+                            icon: const Icon(Icons.person_add_alt_1),
+                            label: const Text('Add User'),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
+              );
+            }
+
+            // Responsive list/grid
+            final width = MediaQuery.of(context).size.width;
+            final isGrid = width >= 900;
+            if (!isGrid) {
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                itemCount: users.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) => _UserTile(user: users[i]),
+              );
+            }
+
+            final cross = width >= 1200 ? 3 : 2;
+            return GridView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: cross,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 3.0,
               ),
-            ),
-          ),
+              itemCount: users.length,
+              itemBuilder: (_, i) => _UserCard(user: users[i]),
+            );
+          },
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
+
+/* ---------- UI bits ---------- */
+
+
 
   // ===================================================================
   // Shared UI utilities
@@ -1383,13 +1537,20 @@ void didChangeDependencies() {
 
   String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'Required' : null;
 
-  String? _gst(String? v) {
-    if (_req(v) != null) return 'Required';
-    final s = v!.trim().toUpperCase();
-    final re = RegExp(
-        r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$');
-    return re.hasMatch(s) ? null : 'Invalid GSTIN format';
-  }
+// GSTIN is OPTIONAL now. If empty => valid.
+// If present => must match GSTIN pattern (15 chars).
+String? _gst(String? v) {
+  if (v == null) return null;             // optional
+  final t = v.trim();
+  if (t.isEmpty) return null;             // optional
+
+  final s = t.toUpperCase();
+  final re = RegExp(
+    r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$',
+  );
+  return re.hasMatch(s) ? null : 'Invalid GSTIN format';
+}
+
 
   // ---------- Warehouses dialog ----------
   Future<_WhRow?> _openWarehouseDialog({_WhRow? initial}) async {
@@ -1582,6 +1743,295 @@ void didChangeDependencies() {
   }
 }
 
+class _UserTile extends StatelessWidget {
+  final AppUserVM user;
+  const _UserTile({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = context.read<SalesDispatchController>();
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: CircleAvatar(child: Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?')),
+        title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          [
+            if ((user.role).isNotEmpty) user.role,
+            if ((user.phone ?? '').isNotEmpty) user.phone!,
+            if ((user.email ?? '').isNotEmpty) user.email!,
+          ].join(' • '),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  builder: (_) => ChangeNotifierProvider.value(
+                    value: ctrl,
+                    child: _AddEditUserSheet(existing: user),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.edit),
+            ),
+            IconButton(
+              onPressed: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Delete user?'),
+                    content: Text('This will remove ${user.name}.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+                    ],
+                  ),
+                );
+                if (ok == true) {
+                  await ctrl.deleteUser(user.id);
+                }
+              },
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UserCard extends StatelessWidget {
+  final AppUserVM user;
+  const _UserCard({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = context.read<SalesDispatchController>();
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            CircleAvatar(child: Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?')),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(user.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: -6,
+                    children: [
+                      _chip(user.role),
+                      if ((user.phone ?? '').isNotEmpty) _chip(user.phone!),
+                      if ((user.email ?? '').isNotEmpty) _chip(user.email!),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  builder: (_) => ChangeNotifierProvider.value(
+                    value: ctrl,
+                    child: _AddEditUserSheet(existing: user),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.edit),
+            ),
+            IconButton(
+              onPressed: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Delete user?'),
+                    content: Text('This will remove ${user.name}.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+                    ],
+                  ),
+                );
+                if (ok == true) {
+                  await ctrl.deleteUser(user.id);
+                }
+              },
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(String text) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade100,
+      border: Border.all(color: Colors.grey.shade300),
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Text(text, style: const TextStyle(fontSize: 12)),
+  );
+}
+
+class _AddEditUserSheet extends StatefulWidget {
+  final AppUserVM? existing;
+  const _AddEditUserSheet({this.existing});
+
+  @override
+  State<_AddEditUserSheet> createState() => _AddEditUserSheetState();
+}
+
+class _AddEditUserSheetState extends State<_AddEditUserSheet> {
+  final _fkey = GlobalKey<FormState>();
+  final _name  = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  String _role = 'Staff';
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    if (e != null) {
+      _name.text  = e.name;
+      _phone.text = e.phone ?? '';
+      _email.text = e.email ?? '';
+      _role       = e.role;
+    }
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    _email.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = context.read<SalesDispatchController>();
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    InputDecoration _box(String hint) => InputDecoration(
+      hintText: hint,
+      isDense: true,
+      filled: true,
+      fillColor: Colors.grey.shade100,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+    );
+
+    Future<void> _save() async {
+      if (!_fkey.currentState!.validate()) return;
+
+      final name  = _name.text.trim();
+      final phone = _phone.text.trim().isEmpty ? null : _phone.text.trim();
+      final email = _email.text.trim().isEmpty ? null : _email.text.trim();
+
+      if (widget.existing == null) {
+        await ctrl.addUser(name: name, phone: phone, email: email, role: _role);
+      } else {
+        await ctrl.updateUser(
+          id: widget.existing!.id,
+          name: name, phone: phone, email: email, role: _role,
+        );
+      }
+      if (mounted) Navigator.pop(context);
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Form(
+            key: _fkey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Text(widget.existing == null ? 'Add User' : 'Edit User',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _name,
+                  decoration: _box('Full name'),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
+                  decoration: _box('Phone'),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: _box('Email'),
+                ),
+                const SizedBox(height: 10),
+                InputDecorator(
+                  decoration: _box('Role'),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _role,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'Admin',   child: Text('Admin')),
+                        DropdownMenuItem(value: 'Manager', child: Text('Manager')),
+                        DropdownMenuItem(value: 'Staff',   child: Text('Staff')),
+                      ],
+                      onChanged: (v) => setState(() => _role = v ?? 'Staff'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _save,
+                    child: Text(widget.existing == null ? 'Create User' : 'Save Changes'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 // ===== Warehouses table ===============================
 class _WhRow {
   _WhRow(this.name, this.address, this.enabled, {this.id});

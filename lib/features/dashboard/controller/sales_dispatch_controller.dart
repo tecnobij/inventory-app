@@ -201,6 +201,21 @@ class SoItemInput {
     required this.unitPriceMinor,
   });
 }
+class AppUserVM {
+  final int id;
+  final String name;
+  final String? phone;
+  final String? email;
+  final String role;
+  AppUserVM({
+    required this.id,
+    required this.name,
+    this.phone,
+    this.email,
+    required this.role,
+  });
+}
+
 
 /// ------------ Controller ------------
 class SalesDispatchController extends ChangeNotifier {
@@ -220,7 +235,62 @@ class SalesDispatchController extends ChangeNotifier {
   String _invQuery = '';
 final Map<int, Party> _partyDrafts = {};
 // in SalesDispatchController
+static const _userMarker = '__USER__'; // stored in Parties.gstin
 
+  Stream<List<AppUserVM>> watchUsers() {
+    final q = db.select(db.parties)
+      ..where((t) => t.orgId.equals(orgId) & t.gstin.equals(_userMarker))
+      ..orderBy([(t) => drift.OrderingTerm.asc(t.name)]);
+    return q.watch().map((rows) => rows.map((r) => AppUserVM(
+      id: r.id,
+      name: r.name,
+      phone: r.phone,
+      email: r.email,
+      role: r.farmName ?? 'Staff',
+    )).toList());
+  }
+
+  Future<int> addUser({
+    required String name,
+    String? phone,
+    String? email,
+    String role = 'Staff',
+  }) {
+    return db.into(db.parties).insert(PartiesCompanion.insert(
+      orgId: orgId,
+      name: name,
+      phone: drift.Value(phone),
+      email: drift.Value(email),
+      gstin: drift.Value(_userMarker) ,                    // <— marks this Party as a user
+      partyType: PartyType.customer,         // any value is fine, not used
+      address: const drift.Value(null),
+      farmName: drift.Value(role),           // <— role lives here
+      createdAt: drift.Value(DateTime.now()),
+      updatedAt: drift.Value(DateTime.now()),
+    ));
+  }
+
+  Future<void> updateUser({
+    required int id,
+    required String name,
+    String? phone,
+    String? email,
+    String role = 'Staff',
+  }) async {
+    await (db.update(db.parties)..where((t) => t.id.equals(id))).write(
+      PartiesCompanion(
+        name: drift.Value(name),
+        phone: drift.Value(phone),
+        email: drift.Value(email),
+        farmName: drift.Value(role),
+        updatedAt: drift.Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> deleteUser(int id) async {
+    await (db.delete(db.parties)..where((t) => t.id.equals(id))).go();
+  }
 SoStatus? _statusFromDb(int? raw) {
   if (raw == null) return null;
   if (raw < 0 || raw >= SoStatus.values.length) return null;
