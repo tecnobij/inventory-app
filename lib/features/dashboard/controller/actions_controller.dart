@@ -1,4 +1,5 @@
 // lib/features/dashboard/controller/actions_controller.dart
+import 'package:bhago/features/dashboard/presentation/accountant_picker_page.dart';
 import 'package:bhago/features/dashboard/presentation/all_transactions_page.dart';
 import 'package:bhago/features/dashboard/presentation/pages/manage_actions_page.dart';
 import 'package:flutter/material.dart';
@@ -17,11 +18,11 @@ class ActionsController extends ChangeNotifier {
     ActionItem(id: 'sales',    label: 'Sales/Dispatch',    icon: Icons.local_shipping_outlined, page: SalesDispatchPage()),
     ActionItem(id: 'quotations', label: 'Quotations',      icon: Icons.description_outlined, page: QuotationsPage()),
     ActionItem(id: 'party',    label: 'Party Management',  icon: Icons.groups_2_outlined, page: PartyManagePage()),
-    ActionItem(id: 'payments', label: 'Credit/Payments',   icon: Icons.credit_card, page: CreditPaymentsPage()),
+    ActionItem(id: 'payments', label: 'Credit/Payments',   icon: Icons.credit_card, page: AccountantPickerPage()),
     ActionItem(id: 'reports',  label: 'Reports',           icon: Icons.bar_chart_outlined, page: ReportPage()),
     ActionItem(id: 'settings', label: 'Settings',          icon: Icons.settings_outlined, page: SettingPage()),
     ActionItem(id: 'actions',  label: 'Actions',           icon: Icons.favorite, page: ManageActionsPage()),
-     ActionItem(id: 'transection',  label: 'Order Transection',           icon: Icons.blinds_closed, page: AllTransactionsPage()),
+
   ];
 
   // Favorites and selection

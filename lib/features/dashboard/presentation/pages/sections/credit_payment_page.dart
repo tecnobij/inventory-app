@@ -1,16 +1,18 @@
 import 'dart:async';
+import 'dart:ui' show FontFeature;
 
-import 'package:bhago/features/dashboard/controller/credit_payments_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:bhago/app/data/local_database.dart';
 import 'package:bhago/features/dashboard/controller/settings_controller.dart';
-
+import 'package:bhago/features/dashboard/controller/credit_payments_controller.dart';
 
 
 class CreditPaymentsPage extends StatefulWidget {
-  const CreditPaymentsPage({super.key});
+  const CreditPaymentsPage({super.key, required this.accountant});
+  final Party accountant; // The selected accountant
+
   @override
   State<CreditPaymentsPage> createState() => _CreditPaymentsPageState();
 }
@@ -20,7 +22,7 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
   final _searchFocus = FocusNode();
   Timer? _debounce;
   String _q = '';
-
+ int? _lastCustomerId;
   CreditPaymentsController? _ctrl;
 
   @override
@@ -38,7 +40,6 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Build controller once
     _ctrl ??= CreditPaymentsController(context.read<AppDatabase>());
 
     final s = context.watch<SettingsProvider>();
@@ -55,7 +56,6 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
     super.dispose();
   }
 
-  // ---------------- Responsive helpers ----------------
   bool get _isWide => MediaQuery.of(context).size.width >= 1000;
   bool get _useTable => MediaQuery.sizeOf(context).width >= 820;
   int _methodCols(double w) {
@@ -67,36 +67,51 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final s = context.watch<SettingsProvider>();
+    final scheme = Theme.of(context).colorScheme;
 
     if (!s.loaded) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (!s.onboarded || s.orgId == null) {
-      return Scaffold(
-        body: Center(
-          child: Text(
-            'Finish onboarding your organization to use Credit & Payments.',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        ),
-      );
+      return const Scaffold(body: Center(child: Text('Finish onboarding your organization to use Credit & Payments.')));
     }
 
     final orgId = s.orgId!;
-    final txStream = _ctrl!.watchPayments(orgId, _q);
-    final pmStream = _ctrl!.watchMethodBalances(orgId);
+
+    // Fetching transactions and payment method balances only for the selected accountant
+final txStream = _ctrl!.watchPayments(
+  orgId,
+  _q,
+  accountantPartyId: widget.accountant.id, // ✅ filter by recorder
+);
+
+final pmStream = _ctrl!.watchMethodBalancesByAccountant(
+  orgId,
+  accountantPartyId: widget.accountant.id,
+);
+
+    // final pmStream = _ctrl!.watchMethodBalances(
+    //   orgId,
+    //   partyId: widget.accountant.id, // Only show the accountant's balance
+    // );
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Your Account'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+      ),
       body: SafeArea(
         child: StreamBuilder<List<PaymentVM>>(
           stream: txStream,
           builder: (context, txSnap) {
-            final tx = txSnap.data ?? const <PaymentVM>[];
-            final totalIn = tx.where((t) => t.direction == PayDir.in_).fold<int>(0, (s, t) => s + t.amountMinor);
-            final totalOut = tx.where((t) => t.direction == PayDir.out_).fold<int>(0, (s, t) => s + t.amountMinor);
-            final net = totalIn - totalOut;
+        final tx = txSnap.data ?? const <PaymentVM>[];
+    final totalIn  = tx.where((t) => t.direction == PayDir.in_).fold<int>(0, (s0, t) => s0 + t.amountMinor);
+    final totalOut = tx.where((t) => t.direction == PayDir.out_).fold<int>(0, (s0, t) => s0 + t.amountMinor);
+    final net      = totalIn - totalOut;
 
             return StreamBuilder<List<MethodBalanceVM>>(
               stream: pmStream,
@@ -109,26 +124,54 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
                     ).net;
 
                 return ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   children: [
-                    // Add Party button (top-right)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton.icon(
-                        onPressed: () => _openAddParty(orgId),
-                        icon: const Icon(Icons.person_add_alt_1),
-                        label: const Text('Add Party'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
+                    // Header row: accountant details + quick actions
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            '${widget.accountant.name}${(widget.accountant.phone ?? '').isNotEmpty ? ' • ${widget.accountant.phone}' : ''}',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          // Expense quick action (OUT) - locked to accountant
+                          OutlinedButton.icon(
+                            onPressed: () => _openRecordPayment(
+                              orgId,
+                              presetDir: PayDir.out_,
+                              presetPartyId: widget.accountant.id,
+                              requireNote: true,
+                            ),
+                            icon: const Icon(Icons.remove_circle_outline),
+                            label: const Text('Expense'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                     
+                       
+                          // Add party
+                          FilledButton.icon(
+                            onPressed: () => _openAddParty(orgId),
+                            icon: const Icon(Icons.person_add_alt_1),
+                            label: const Text('Add Party'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
 
-                    // Payment method cards
+                    // Method cards
                     LayoutBuilder(builder: (context, c) {
                       final cols = _methodCols(c.maxWidth);
                       return GridView.count(
@@ -167,30 +210,29 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
                     _isWide
                         ? Row(
                             children: [
-                              Expanded(child: _SummaryPill(label: 'Total In', value: _inr(totalIn), color: const Color(0xFF12B76A))),
+                              Expanded(child: _SummaryPill(label: 'Total In',  value: _inr(totalIn),  color: const Color(0xFF12B76A))),
                               const SizedBox(width: 16),
                               Expanded(child: _SummaryPill(label: 'Total Out', value: _inr(totalOut), color: const Color(0xFFF04438))),
                               const SizedBox(width: 16),
-                              Expanded(child: _SummaryPill(label: 'Net Amount', value: _inr(net), color: const Color(0xFFFB8C00))),
-                              const SizedBox(width: 16),
-                              _RecordPaymentButton(onPressed: () => _openRecordPayment(orgId)),
+                              Expanded(child: _SummaryPill(label: 'Net Amount', value: _inr(net),      color: const Color(0xFFFB8C00))),
+                               
                             ],
                           )
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              _SummaryPill(label: 'Total In', value: _inr(totalIn), color: const Color(0xFF12B76A)),
+                              _SummaryPill(label: 'Total In',  value: _inr(totalIn),  color: const Color(0xFF12B76A)),
                               const SizedBox(height: 12),
                               _SummaryPill(label: 'Total Out', value: _inr(totalOut), color: const Color(0xFFF04438)),
                               const SizedBox(height: 12),
-                              _SummaryPill(label: 'Net Amount', value: _inr(net), color: const Color(0xFFFB8C00)),
-                              const SizedBox(height: 12),
-                              _RecordPaymentButton(onPressed: () => _openRecordPayment(orgId)),
+                              _SummaryPill(label: 'Net Amount', value: _inr(net),     color: const Color(0xFFFB8C00)),
+                              
                             ],
                           ),
 
-                    const SizedBox(height: 20),
-
+                    const SizedBox(height: 12),
+  _RecordPaymentButton(onPressed: () => _openRecordPayment(orgId)),
+        const SizedBox(height: 12),
                     // Recent transactions
                     Container(
                       decoration: BoxDecoration(
@@ -247,8 +289,7 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
                     const _InfoCallout(
                       icon: Icons.info_outline_rounded,
                       color: Color(0xFF1976D2),
-                      text:
-                          'Reconciliation Tip: Regularly reconcile your payment methods with bank statements to ensure accuracy.',
+                      text: 'Reconciliation Tip: Regularly reconcile your payment methods with bank statements to ensure accuracy.',
                     ),
                   ],
                 );
@@ -304,17 +345,28 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
     }
   }
 
-  Future<void> _openRecordPayment(int orgId) async {
-    // Dropdown sources
-    var methods = await _ctrl!.listMethods(orgId);
-    var parties = await _ctrl!.listParties(orgId);
+  // Function to open payment recording for a specific accountant
+  Future<void> _openRecordPayment(
+    int orgId, {
+    PayDir? presetDir,
+    int? presetPartyId,
+    bool requireNote = false,
+  }) async {
+    // Get methods and parties (exclude accountants for IN flow for cleaner picking)
+    final methods = await _ctrl!.listMethods(orgId);
+    final allParties = await _ctrl!.listParties(orgId,
+        excludeAccountants: presetDir == null ? true : (presetDir == PayDir.in_));
 
     if (!mounted) return;
 
     final formKey = GlobalKey<FormState>();
-    PayDir dir = PayDir.in_;
+    PayDir dir = presetDir ?? PayDir.in_;
     int? methodId = methods.isNotEmpty ? methods.first.id : null;
-    int? partyId = parties.isNotEmpty ? parties.first.id : null;
+
+    int? partyId = presetPartyId
+        ?? (_lastCustomerId != null && allParties.any((p) => p.id == _lastCustomerId)
+            ? _lastCustomerId
+            : (allParties.isNotEmpty ? allParties.first.id : null));
 
     final amountCtrl = TextEditingController();
     final refCtrl = TextEditingController();
@@ -327,6 +379,7 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
       final i = int.tryParse(v!.trim());
       return (i == null || i <= 0) ? 'Enter a positive amount' : null;
     }
+    String? reqNote(String? v) => requireNote ? req(v) : null;
 
     await showDialog<bool>(
       context: context,
@@ -334,16 +387,14 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
       builder: (ctx) {
         final scheme = Theme.of(ctx).colorScheme;
         InputDecoration _soft(String hint) => InputDecoration(
-              hintText: hint,
-              filled: true,
-              fillColor: scheme.surfaceVariant.withOpacity(.45),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: scheme.outlineVariant, width: 1.0)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: scheme.outlineVariant, width: .6)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: scheme.outline, width: 1.6)),
-            );
-
-        final hasParty = parties.isNotEmpty;
+          hintText: hint,
+          filled: true,
+          fillColor: scheme.surfaceVariant.withOpacity(.45),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: scheme.outlineVariant, width: 1.0)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: scheme.outlineVariant, width: .6)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: scheme.outline, width: 1.6)),
+        );
 
         return Dialog(
           insetPadding: const EdgeInsets.all(10),
@@ -369,17 +420,25 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
                         ),
                         const SizedBox(height: 8),
 
-                        // Direction
-                        Row(
-                          children: [
-                            ChoiceChip(label: const Text('IN'), selected: dir == PayDir.in_, onSelected: (_) => setState(() => dir = PayDir.in_)),
-                            const SizedBox(width: 8),
-                            ChoiceChip(label: const Text('OUT'), selected: dir == PayDir.out_, onSelected: (_) => setState(() => dir = PayDir.out_)),
-                          ],
-                        ),
+                        if (presetDir == null)
+                          Row(
+                            children: [
+                              ChoiceChip(
+                                label: const Text('IN'),
+                                selected: dir == PayDir.in_,
+                                onSelected: (_) => setState(() => dir = PayDir.in_),
+                              ),
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('OUT'),
+                                selected: dir == PayDir.out_,
+                                onSelected: (_) => setState(() => dir = PayDir.out_),
+                              ),
+                            ],
+                          ),
+
                         const SizedBox(height: 14),
 
-                        // Method + Party (icons hidden for tight space)
                         Row(
                           children: [
                             Expanded(
@@ -396,38 +455,31 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
                             Expanded(
                               child: DropdownButtonFormField<int>(
                                 icon: const SizedBox.shrink(),
-                                value: hasParty && parties.any((p) => p.id == partyId) ? partyId : null,
-                                hint: Text(hasParty ? 'Party' : 'Please Add Party'),
-                                items: parties.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
-                                onChanged: hasParty ? (v) => setState(() => partyId = v) : null,
+                                value: (presetPartyId != null) ? presetPartyId : partyId,
+                                hint: Text(allParties.isNotEmpty ? 'Party' : 'Please Add Party'),
+                                items: allParties.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
+                                onChanged: (presetPartyId != null) ? null : (v) => setState(() => partyId = v),
                                 validator: (v) => (v == null) ? 'Select party' : null,
                                 decoration: _soft('Party'),
                               ),
                             ),
                           ],
                         ),
+
                         const SizedBox(height: 14),
 
-                        // Amount
-                        TextFormField(
-                          controller: amountCtrl,
-                          decoration: _soft('Amount (minor units)'),
-                          keyboardType: TextInputType.number,
-                          validator: reqInt,
-                        ),
+                        TextFormField(controller: amountCtrl, decoration: _soft('Amount (minor units)'), keyboardType: TextInputType.number, validator: reqInt),
                         const SizedBox(height: 12),
 
-                        // Ref + Note
                         Row(
                           children: [
-                            Expanded(child: TextFormField(controller: refCtrl, decoration: _soft('Reference (optional)'))),
+                            Expanded(child: TextFormField(controller: refCtrl,  decoration: _soft('Reference (optional)'))),
                             const SizedBox(width: 12),
-                            Expanded(child: TextFormField(controller: noteCtrl, decoration: _soft('Notes (optional)'))),
+                            Expanded(child: TextFormField(controller: noteCtrl, decoration: _soft(requireNote ? 'Notes (required)' : 'Notes (optional)'), validator: reqNote)),
                           ],
                         ),
                         const SizedBox(height: 12),
 
-                        // Date
                         Row(
                           children: [
                             Expanded(
@@ -458,18 +510,27 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
                                 onPressed: () async {
                                   if (!formKey.currentState!.validate()) return;
                                   final amt = int.parse(amountCtrl.text.trim());
-                                  await _ctrl!.savePayment(
-                                    PaymentInput(
-                                      orgId: orgId,
-                                      partyId: partyId!,
-                                      methodId: methodId!,
-                                      direction: dir,
-                                      amountMinor: amt,
-                                      paidAt: paidAt,
-                                      reference: refCtrl.text.trim().isEmpty ? null : refCtrl.text.trim(),
-                                      note: noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
-                                    ),
-                                  );
+
+                                 await _ctrl!.savePayment(
+  PaymentInput(
+    orgId: orgId,
+    partyId: (presetPartyId ?? partyId)!,
+    methodId: methodId!,
+    direction: dir,
+    amountMinor: amt,
+    paidAt: paidAt,
+    reference: refCtrl.text.trim().isEmpty ? null : refCtrl.text.trim(),
+    note: noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
+    accountantPartyId: widget.accountant.id, // ✅ who recorded this payment
+  ),
+);
+
+
+                                  // Remember last picked customer for quick IN entries
+                                  if (presetPartyId == null && dir == PayDir.in_) {
+                                    setState(() => _lastCustomerId = partyId);
+                                  }
+
                                   if (context.mounted) {
                                     Navigator.pop(context, true);
                                     _snack('Payment saved');
@@ -503,6 +564,8 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
     );
   }
 
+
+
   // ---------------- Utils ----------------
   void _snack(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
   String _inr(int v) => '₹${_comma(v)}';
@@ -518,7 +581,7 @@ class _CreditPaymentsPageState extends State<CreditPaymentsPage> {
   }
 }
 
-/* ======================= Stateles UI bits ======================= */
+/* ======================= Stateless UI bits ======================= */
 
 class _PaymentMethodCard extends StatelessWidget {
   const _PaymentMethodCard({
@@ -616,7 +679,7 @@ class _RecordPaymentButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 220, minHeight: 56),
+      constraints: const BoxConstraints(minWidth: 200, minHeight: 44),
       child: ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.black,

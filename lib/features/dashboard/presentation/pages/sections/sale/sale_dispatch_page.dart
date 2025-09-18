@@ -1,4 +1,6 @@
 import 'package:bhago/features/dashboard/controller/sales_dispatch_controller.dart';
+import 'package:bhago/features/dashboard/presentation/all_transactions_page.dart';
+import 'package:bhago/features/dashboard/presentation/pages/sections/product_and_stocks.dart';
 import 'package:bhago/features/dashboard/presentation/pages/sections/sale/so_details_page.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
@@ -43,7 +45,7 @@ class _SalesDispatchScaffold extends StatelessWidget {
               SegmentedTabs(
                 tabs: const [
                   (Icons.receipt_long, 'Sales Orders'),
-                  (Icons.description, 'Invoices'),
+              
                   (Icons.add, 'Create SO'),
                 ],
               ),
@@ -52,8 +54,8 @@ class _SalesDispatchScaffold extends StatelessWidget {
                 child: TabBarView(
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    _SalesOrdersTab(isMobile: isMobile),
-                    _InvoicesTab(isMobile: isMobile),
+                   AllTransactionsPage(),
+                  
                     CreateSoTab(isMobile: isMobile),
                   ],
                 ),
@@ -66,263 +68,9 @@ class _SalesDispatchScaffold extends StatelessWidget {
   }
 }
 
-/// ------------------- Sales Orders Tab -------------------
-class _SalesOrdersTab extends StatefulWidget {
-  final bool isMobile;
-  const _SalesOrdersTab({required this.isMobile});
-
-  @override
-  State<_SalesOrdersTab> createState() => _SalesOrdersTabState();
-}
-
-class _SalesOrdersTabState extends State<_SalesOrdersTab> {
-  final _q = TextEditingController();
- // local-only preview after "Confirm"
-
-  @override
-  void initState() {
-    super.initState();
-    _q.addListener(() {
-      context.read<SalesDispatchController>().setSoQuery(_q.text);
-    });
-  }
-
-  @override
-  void dispose() {
-    _q.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ctrl = context.watch<SalesDispatchController>();
-    if (!ctrl.ready) {
-      return const Center(child: Text('Finish onboarding to use Sales & Dispatch.'));
-    }
-
-    return Padding(
-      padding: EdgeInsets.all(widget.isMobile ? 12 : 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          widget.isMobile
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _searchField(_q, 'Search SO number / customer...'),
-                    const SizedBox(height: 12),
-                    _filtersPill(),
-                  ],
-                )
-              : Row(
-                  children: [
-                    Expanded(child: _searchField(_q, 'Search SO number / customer...')),
-                    const SizedBox(width: 16),
-                    _filtersPill(),
-                  ],
-                ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: StreamBuilder<List<SalesOrderVM>>(
-              stream: ctrl.watchSalesOrders(),
-              builder: (context, snap) {
-                if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final items = snap.data ?? const <SalesOrderVM>[];
-                if (items.isEmpty) {
-                  return _emptyState(
-                    title: 'No Sales Orders',
-                    subtitle: 'Create your first Sales Order to get started.',
-                    cta: 'Create SO',
-                    onTap: () => DefaultTabController.of(context).animateTo(2),
-                  );
-                }
-
-                return widget.isMobile
-                    ? ListView.builder(
-                        itemCount: items.length,
-                        itemBuilder: (_, i) => _SoCard(item: items[i]),
-                      )
-                    : _SoTable(items: items);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _filtersPill() => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [Icon(Icons.filter_list, size: 18), SizedBox(width: 8), Text('Filters')],
-        ),
-      );
-
-  Widget _searchField(TextEditingController c, String hint) => TextFormField(
-        controller: c,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          hintText: hint,
-          prefixIcon: const Icon(Icons.search, color: Colors.grey),
-          isDense: true,
-          filled: true,
-          fillColor: Colors.grey.shade100,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-        ),
-      );
-
-  Widget _emptyState({
-    required String title,
-    required String subtitle,
-    required String cta,
-    required VoidCallback onTap,
-  }) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.inventory_2_outlined, size: 64),
-          const SizedBox(height: 8),
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(subtitle, style: TextStyle(color: Colors.grey.shade600)),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: onTap,
-            style: FilledButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
-            child: Text(cta),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SoTable extends StatelessWidget {
-  final List<SalesOrderVM> items;
-  const _SoTable({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final ctrl = context.read<SalesDispatchController>();
-
-    Widget th(String t, {int flex = 1}) => Expanded(
-      flex: flex,
-      child: Text(t, style: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w700)),
-    );
-
-    Widget td(String t, {int flex = 1, bool bold = false}) => Expanded(
-      flex: flex,
-      child: Text(t, style: TextStyle(fontWeight: bold ? FontWeight.w600 : FontWeight.w400)),
-    );
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: scheme.outlineVariant),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Expanded(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    th('SO No',     flex: 2),
-                    th('Customer',  flex: 3),
-                    th('Date',      flex: 2),
-                    th('Items',     flex: 1),
-                    th('Amount',    flex: 2),
-                    const SizedBox(width: 56, child: Text('')),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              for (final s in items) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      td(s.soNo, flex: 2, bold: true),
-                      td(s.customer, flex: 3),
-                      td(_fmtDate(s.date), flex: 2),
-                      td('${s.itemsCount}', flex: 1),
-                      td(ctrl.inr(s.totalMinor), flex: 2, bold: true),
-                      const SizedBox(width: 56, child: Icon(Icons.visibility_outlined, size: 20)),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _fmtDate(DateTime? d) =>
-      d == null ? '-' : '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-}
 
 
-class _SoCard extends StatelessWidget {
-  final SalesOrderVM item;
-  const _SoCard({required this.item});
 
-  @override
-  Widget build(BuildContext context) {
-    final ctrl = context.read<SalesDispatchController>();
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text(item.soNo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            _statusChip(item.status),
-          ]),
-          const SizedBox(height: 8),
-          Text('Customer: ${item.customer}'),
-          const SizedBox(height: 2),
-          Text('Date: ${_fmtDate(item.date)}', style: TextStyle(color: Colors.grey.shade600)),
-          const SizedBox(height: 8),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('Items: ${item.itemsCount}', style: TextStyle(color: Colors.grey.shade700)),
-            Text(ctrl.inr(item.totalMinor), style: const TextStyle(fontWeight: FontWeight.w700)),
-          ]),
-        ]),
-      ),
-    );
-  }
-
-  Widget _statusChip(SoStatus? s) {
-    final label = s?.name.toUpperCase() ?? 'DRAFT';
-    final dark = (s == SoStatus.confirmed || s == SoStatus.dispatched);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: dark ? Colors.black : Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(label, style: TextStyle(color: dark ? Colors.white : Colors.black, fontSize: 12, fontWeight: FontWeight.w600)),
-    );
-  }
-
-  String _fmtDate(DateTime? d) =>
-      d == null ? '-' : '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-}
 
 /// ------------------- Invoices Tab -------------------
 class _InvoicesTab extends StatefulWidget {
@@ -849,6 +597,12 @@ class _LineItemsSection extends StatelessWidget {
     return null;
   }
 
+  Future<void> _goToProducts(BuildContext ctx) async {
+    await Navigator.of(ctx).push(
+      MaterialPageRoute(builder: (_) => const ProductPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 700;
@@ -861,6 +615,47 @@ class _LineItemsSection extends StatelessWidget {
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
     );
+
+    // When there are no products, this “fake field” is shown and routes to ProductPage on tap.
+    Widget _noProductsInput(BuildContext ctx, {String hint = 'No products found — tap to add'}) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _goToProducts(ctx),
+        child: InputDecorator(
+          decoration: _box(hint),
+          child: Row(
+            children: const [
+              Icon(Icons.add_box_outlined, size: 18),
+              SizedBox(width: 8),
+              Text('Add product'),
+              Spacer(),
+              Icon(Icons.arrow_forward_ios, size: 14),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Reusable product picker (desktop & mobile both use this)
+    Widget _productPicker(BuildContext ctx, _LineItemRow r, {String? hint}) {
+      if (products.isEmpty) {
+        return _noProductsInput(ctx, hint: hint ?? 'No products found — tap to add');
+      }
+      return DropdownButtonFormField<int>(
+        value: r.productId,
+        items: products
+            .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
+            .toList(),
+        onChanged: (v) {
+          final newProd = _findProd(v);
+          r.productId = v;
+          r.unitPriceMinor = newProd?.priceMinor ?? newProd?.mrpMinor ?? newProd?.costMinor ?? 0;
+          r.gstPct = newProd?.gstPercent ?? 0;
+          onChanged();
+        },
+        decoration: _box(hint ?? 'Select product'),
+      );
+    }
 
     Widget headerDesktop() {
       return Container(
@@ -898,20 +693,13 @@ class _LineItemsSection extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            // Product
+            // Product (navigates if none)
             Expanded(
               flex: 4,
-              child: DropdownButtonFormField<int>(
-                value: r.productId,
-                items: products.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
-                onChanged: (v) {
-                  final newProd = _findProd(v);
-                  r.productId = v;
-                  r.unitPriceMinor = newProd?.priceMinor ?? newProd?.mrpMinor ?? newProd?.costMinor ?? 0;
-                  r.gstPct = newProd?.gstPercent ?? 0;
-                  onChanged();
-                },
-                decoration: _box('Select product'),
+              child: _productPicker(
+                context,
+                r,
+                hint: 'Select product',
               ),
             ),
             const SizedBox(width: 8),
@@ -1011,7 +799,6 @@ class _LineItemsSection extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Column(
             children: [
-              // First row: Title + remove
               Row(
                 children: [
                   Text('Item ${i + 1}', style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -1025,18 +812,11 @@ class _LineItemsSection extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              // Product
-              DropdownButtonFormField<int>(
-                value: r.productId,
-                items: products.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
-                onChanged: (v) {
-                  final newProd = _findProd(v);
-                  r.productId = v;
-                  r.unitPriceMinor = newProd?.priceMinor ?? newProd?.mrpMinor ?? newProd?.costMinor ?? 0;
-                  r.gstPct = newProd?.gstPercent ?? 0;
-                  onChanged();
-                },
-                decoration: _box('Select product'),
+              // Product (navigates if none)
+              _productPicker(
+                context,
+                r,
+                hint: 'Select product',
               ),
               const SizedBox(height: 10),
 
@@ -1069,7 +849,7 @@ class _LineItemsSection extends StatelessWidget {
               // GST % + Line total
               Row(
                 children: [
-                  Expanded(child: _readOnlyPill('GST: ${gstPct}%')),
+                  Expanded(child: _readOnlyPill('GST: ${r.gstPct ?? prod?.gstPercent ?? 0}%')),
                   const SizedBox(width: 8),
                   Expanded(child: _readOnlyPill('Total: ${_inr(lineTot)}')),
                 ],
@@ -1090,7 +870,13 @@ class _LineItemsSection extends StatelessWidget {
         child: Align(
           alignment: Alignment.centerLeft,
           child: OutlinedButton.icon(
-            onPressed: onAddRow,
+            onPressed: () {
+              if (products.isEmpty) {
+                _goToProducts(context);
+              } else {
+                onAddRow();
+              }
+            },
             icon: const Icon(Icons.add),
             label: const Text('Add line'),
           ),
@@ -1102,7 +888,6 @@ class _LineItemsSection extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Simple section title for mobile
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text('Items', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
@@ -1505,43 +1290,68 @@ class _CustomerInlineEditorState extends State<CustomerInlineEditor> {
   );
 
   // Autofill name/phone/gstin from search text until user picks a suggestion
-  void _mirrorSearchIntoFields() {
-    if (_selected != null) return;
+void _mirrorSearchIntoFields() {
+  // If an existing party is selected, don't overwrite fields.
+  if (_selected != null) return;
 
-    final raw = _search.text.trim();
-    if (raw.isEmpty) return;
+  final raw = _search.text.trim();
+  if (raw.isEmpty) return;
 
-    final gstMatch = RegExp(r'\b[0-9]{2}[A-Z0-9]{10}[A-Z0-9]{3}\b', caseSensitive: false).firstMatch(raw);
-    final phoneMatch = RegExp(r'\b\d{7,}\b').firstMatch(raw);
+  // 0) GSTIN (keep your previous behavior)
+  final gstMatch = RegExp(
+    r'\b[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b',
+    caseSensitive: false,
+  ).firstMatch(raw);
+  var working = raw;
 
-    var remaining = raw;
-
-    if (gstMatch != null) {
-      final gst = gstMatch.group(0)!.toUpperCase();
-      if (_gstin.text.isEmpty) _gstin.text = gst;
-      remaining = remaining.replaceFirst(gstMatch.group(0)!, '').trim();
-    }
-
-    if (phoneMatch != null) {
-      var ph = phoneMatch.group(0)!;
-      if (ph.length > 10) ph = ph.substring(ph.length - 10);
-      if (_phone.text.isEmpty) _phone.text = ph;
-      remaining = remaining.replaceFirst(phoneMatch.group(0)!, '').trim();
-    }
-
-    remaining = remaining
-        .replaceAll(RegExp(r'[-|,]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-
-    if (remaining.isNotEmpty && _name.text.isEmpty) {
-      _name.text = remaining.split(' ').map((w) =>
-        w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}'
-      ).join(' ');
-    }
-
-    _emit();
+  if (gstMatch != null) {
+    final gst = gstMatch.group(0)!.toUpperCase();
+    if (_gstin.text.isEmpty) _gstin.text = gst;
+    working = working.replaceFirst(gstMatch.group(0)!, '').trim();
   }
+
+  // 1) If the WHOLE input is numeric-like (+, spaces, (), -, digits),
+  //    treat it as a phone; don't touch name.
+  final isNumericLike = RegExp(r'^[\d\+\-\s\(\)]+$').hasMatch(working);
+  if (isNumericLike) {
+    final digits = working.replaceAll(RegExp(r'\D'), '');
+    if (digits.isNotEmpty) {
+      final last10 = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+      if (_phone.text != last10) _phone.text = last10;
+      _emit();
+    }
+    return; // Do not auto-fill name when purely numeric-like
+  }
+
+  // 2) Mixed input: pull any phone digits out, and use the remainder as name.
+  //    (e.g. "ram 9876543210" => phone=9876543210, name="Ram")
+  final digits = working.replaceAll(RegExp(r'\D'), '');
+  if (digits.isNotEmpty) {
+    final last10 = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+    if (_phone.text.isEmpty) _phone.text = last10;
+    working = working.replaceAll(RegExp(r'\d'), ' ').trim();
+  }
+
+  // Clean up punctuation and excessive spaces
+  working = working
+      .replaceAll(RegExp(r'[-|,]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  // Title-case the remaining text into Name (only if empty or different)
+  if (working.isNotEmpty) {
+    final title = working
+        .split(' ')
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+        .join(' ');
+    if (_name.text.isEmpty || _name.text != title) {
+      _name.text = title;
+    }
+  }
+
+  _emit();
+}
+
 
   void _clearAll() {
     setState(() { _selected = null; });

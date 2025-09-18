@@ -1,70 +1,47 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import 'package:bhago/app/data/local_database.dart';
 import 'package:bhago/core/auth_gate.dart';
 import 'package:bhago/features/dashboard/controller/auth_provider.dart';
 import 'package:bhago/features/dashboard/controller/sales_dispatch_controller.dart';
-
 import 'package:bhago/features/dashboard/controller/theme_controller.dart';
 import 'package:bhago/features/dashboard/controller/settings_controller.dart';
-
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
-
 import 'features/dashboard/controller/actions_controller.dart';
-
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final db = AppDatabase();
 
-  final themeCtrl = ThemeController();
-  await themeCtrl.load();
-
-runApp(
-
-
-   Provider<AppDatabase>.value(
-      value: db,
-      child: MultiProvider(
-        providers: [
-          Provider<AppDatabase>(
-        create: (_) => AppDatabase(),
-        dispose: (_, db) => db.close(),
-      ),
-
-      // Actions / Theme
-      ChangeNotifierProvider(
-        create: (_) {
-          final c = ActionsController();
-          c.load();
-          return c;
-        },
-      ),
-      ChangeNotifierProvider(
-        create: (_) => ThemeController()..load(),
-      ),
-
-      // Auth
-      ChangeNotifierProvider(create: (_) => AuthProvider()..load()),
-
-      // Single SettingsProvider shared everywhere
-      ChangeNotifierProvider<SettingsProvider>(
-        create: (ctx) => SettingsProvider(ctx.read<AppDatabase>())..load(),
-      ),
-
-      // SalesDispatchController must reuse the SAME SettingsProvider
-      ChangeNotifierProvider<SalesDispatchController>(
-        create: (ctx) => SalesDispatchController(
-          db: ctx.read<AppDatabase>(),
-          settings: ctx.read<SettingsProvider>(),
+  runApp(
+    MultiProvider(
+      providers: [
+        // ⬅️ Single DB instance for the whole app
+        Provider<AppDatabase>(
+          create: (_) => AppDatabase(),
+          dispose: (_, db) => db.close(),
         ),
-      ),
-        ],
-        child: const MyApp(),
-      ),
-    ),
-);
 
+        // Settings uses the SAME DB instance
+      
+        // Controllers (no duplicate ThemeController)
+        ChangeNotifierProvider(create: (_) => ActionsController()..load()),
+        ChangeNotifierProvider(create: (_) => ThemeController()..load()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()..load()),
+
+  ChangeNotifierProvider<SettingsProvider>(
+          create: (ctx) => SettingsProvider(ctx.read<AppDatabase>())..load(),
+        ),
+        // SalesDispatchController reuses SAME DB + Settings
+        ChangeNotifierProvider<SalesDispatchController>(
+          create: (ctx) => SalesDispatchController(
+            db: ctx.read<AppDatabase>(),
+            settings: ctx.read<SettingsProvider>(),
+          ),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 
@@ -113,37 +90,3 @@ TextTheme _boldAll(TextTheme t) => t.copyWith(
   labelSmall: t.labelSmall?.copyWith(fontWeight: FontWeight.w700),
 );
 
-// class _HomeDecider extends StatelessWidget {
-//   const _HomeDecider();
-
-//   Future<bool> _isSignedIn() async {
-//     final sp = await SharedPreferences.getInstance();
-//     return sp.getBool('auth_ok') ?? false;
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final s = context.watch<SettingsProvider>();
-
-//     return FutureBuilder<bool>(
-//       future: _isSignedIn(),
-//       builder: (context, snap) {
-//         if (!s.loaded || snap.connectionState != ConnectionState.done) {
-//           return const Scaffold(
-//             body: Center(child: CircularProgressIndicator()),
-//           );
-//         }
-
-//         final signedIn = snap.data ?? false;
-//         if (!signedIn) {
-//           // First time: show Welcome / Sign-in page
-//           return const WelcomeAuthPage();
-//         }
-
-//         // Signed in: decide between Settings onboarding or Dashboard
-//         final showSettings = !(s.onboarded );
-//         return showSettings ? const WelcomeAuthPage() : const DashboardView();
-//       },
-//     );
-//   }
-// }

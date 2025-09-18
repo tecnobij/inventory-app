@@ -323,38 +323,55 @@ class PaymentMethods extends Table {
   IntColumn get isActive => integer().nullable().named('is_active')();
 }
 
+   
 class Payments extends Table {
   IntColumn get id => integer().autoIncrement()();
+
   IntColumn get orgId => integer()
       .named('org_id')
-      .customConstraint(
-        'REFERENCES organizations(id) ON UPDATE CASCADE ON DELETE RESTRICT',
-      )();
+      .customConstraint('REFERENCES organizations(id) ON UPDATE CASCADE ON DELETE RESTRICT')();
+
   IntColumn get partyId => integer()
       .named('party_id')
-      .customConstraint(
-        'REFERENCES parties(id) ON UPDATE CASCADE ON DELETE RESTRICT',
-      )();
+      .customConstraint('REFERENCES parties(id) ON UPDATE CASCADE ON DELETE RESTRICT')();
+
   IntColumn get invoiceId => integer()
       .nullable()
       .named('invoice_id')
-      .customConstraint(
-        'REFERENCES invoices(id) ON UPDATE CASCADE ON DELETE SET NULL',
-      )();
+      .customConstraint('REFERENCES invoices(id) ON UPDATE CASCADE ON DELETE SET NULL')();
+
   IntColumn get methodId => integer()
       .named('method_id')
-      .customConstraint(
-        'REFERENCES payment_methods(id) ON UPDATE CASCADE ON DELETE RESTRICT',
-      )();
+      .customConstraint('REFERENCES payment_methods(id) ON UPDATE CASCADE ON DELETE RESTRICT')();
+
   IntColumn get direction => integer()
       .map(const EnumIndexConverter<PayDir>(PayDir.values))
       .named('direction')();
+
   IntColumn get amountMinor => integer().named('amount_minor')();
+
   TextColumn get refNo => text().nullable().named('ref_no')();
+
   TextColumn get note => text().nullable().named('note')();
+
   DateTimeColumn get paidAt => dateTime().nullable().named('paid_at')();
+
   DateTimeColumn get createdAt => dateTime().nullable().named('created_at')();
+
+  // ✅ NEW: who recorded this payment (the accountant’s party id)
+// In class Payments extends Table
+IntColumn get accountantPartyId => integer()
+    .nullable()
+    .named('accountant_party_id')
+    .customConstraint('REFERENCES parties(id) ON UPDATE CASCADE ON DELETE SET NULL')();
+
 }
+
+
+
+
+
+
 
 class AppSettings extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -452,38 +469,35 @@ class FavoriteActions extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  // ⬆️ bump when you change tables/columns
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3; // ⬆️ was 2
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          await m.createAll();
-        },
-        onUpgrade: (m, from, to) async {
-          // v1 -> v2: add nullable columns to parties
-          if (from < 2) {
-            await m.alterTable(TableMigration(
-              parties,
-              // These must exist as columns on your Parties table class
-              newColumns: [parties.address, parties.farmName],
-            ));
-
-            // (Optional) If you want a unique index on numbering patterns per org
-            // await customStatement(
-            //   'CREATE UNIQUE INDEX IF NOT EXISTS ux_numbering_org_doctype '
-            //   'ON numbering_patterns(org_id, doc_type)'
-            // );
-          }
-        },
-        beforeOpen: (details) async {
-          // Enforce FK integrity in SQLite
-          await customStatement('PRAGMA foreign_keys = ON');
-        },
-      );
-
+    onCreate: (m) async {
+      await m.createAll();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.alterTable(TableMigration(
+          parties,
+          newColumns: [parties.address, parties.farmName],
+        ));
+      }
+      if (from < 3) {
+        // ✅ add accountant_party_id to payments
+        if (from < 3) {
+      // ✅ Use addColumn to avoid the IntColumn vs GeneratedColumn mismatch
+      await m.addColumn(payments, payments.accountantPartyId );
+    }
+      }
+    },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
 }
+
 
 
 LazyDatabase _openConnection() {
@@ -503,34 +517,36 @@ LazyDatabase _openConnection() {
 // =====================
 extension DbMaintenance on AppDatabase {
   /// Deletes only transactional data (keeps master data like products, parties, warehouses, etc.)
-  Future<void> wipeTransactionsOnly() async {
-    await transaction(() async {
-      // detail tables first
-      await delete(invoiceItems).go();
-      await delete(salesOrderItems).go();
-      await delete(quotationItems).go();
+Future<void> wipeTransactionsOnly() async {
+  await transaction(() async {
+    // detail tables first
+    await delete(invoiceItems).go();
+    await delete(salesOrderItems).go();
+    await delete(quotationItems).go();
 
-      // snapshots before deleting sales orders (FK restrict)
-      await delete(soPartySnapshots).go();
+    // snapshots before deleting sales orders (FK restrict)
+    // await delete(soPartySnapshots).go(); // ❌ remove or guard, table not present
 
-      // ledger-ish / balances
-      await delete(inventoryMoves).go();
-      await delete(productStocks).go();
+    // ledger-ish / balances
+    await delete(inventoryMoves).go();
+    await delete(productStocks).go();
 
-      // headers
-      await delete(invoices).go();
-      await delete(quotations).go();
-      await delete(payments).go();
-      await delete(salesOrders).go();
+    // headers
+    await delete(invoices).go();
+    await delete(quotations).go();
+    await delete(payments).go();
+    await delete(salesOrders).go();
 
-      // (optional) reset sqlite autoincrement counters for these tables only
-      await customStatement('DELETE FROM sqlite_sequence WHERE name IN ('
-          "'invoice_items','sales_order_items','quotation_items',"
-          "'so_party_snapshots','inventory_moves','product_stocks',"
-          "'invoices','quotations','payments','sales_orders'"
-          ')');
-    });
-  }
+    // reset autoincrement counters for only the tables that exist
+    await customStatement('DELETE FROM sqlite_sequence WHERE name IN ('
+        "'invoice_items','sales_order_items','quotation_items',"
+        // "'so_party_snapshots',"  // ❌ remove
+        "'inventory_moves','product_stocks',"
+        "'invoices','quotations','payments','sales_orders'"
+        ')');
+  });
+}
+
 
   /// Factory reset everything. By default keeps the Organizations row so onboarding stays intact.
   Future<void> factoryReset({bool keepOrg = true}) async {

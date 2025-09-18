@@ -1,3 +1,4 @@
+import 'package:bhago/features/dashboard/presentation/accountant_picker_page.dart';
 import 'package:flutter/material.dart';
 import '../model/dashboard_model.dart';
 import '../presentation/pages/pages.dart';
@@ -36,7 +37,7 @@ class DashboardController extends ChangeNotifier {
     NavItem(
       label: 'Reports',
       icon: Icons.receipt_long_outlined,
-      page: CreditPaymentsPage(),
+      page: AccountantPickerPage(),
     ),
     NavItem(
       label: 'Finance',
