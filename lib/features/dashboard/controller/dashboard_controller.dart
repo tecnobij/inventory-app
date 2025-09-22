@@ -1,4 +1,4 @@
-import 'package:bhago/features/dashboard/presentation/accountant_picker_page.dart';
+import 'package:bhago/features/dashboard/presentation/pages/credit_payment/accountant_picker_page.dart';
 import 'package:flutter/material.dart';
 import '../model/dashboard_model.dart';
 import '../presentation/pages/pages.dart';

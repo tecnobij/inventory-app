@@ -1,5 +1,5 @@
 // lib/features/payments/accountant_picker_page.dart
-import 'package:bhago/features/dashboard/presentation/pages/sections/credit_payment_page.dart';
+import 'package:bhago/features/dashboard/presentation/pages/credit_payment/credit_payment_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:bhago/app/data/local_database.dart';

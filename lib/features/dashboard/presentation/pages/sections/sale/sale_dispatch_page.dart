@@ -1,9 +1,12 @@
+import 'package:bhago/features/dashboard/controller/credit_payments_controller.dart';
 import 'package:bhago/features/dashboard/controller/sales_dispatch_controller.dart';
 import 'package:bhago/features/dashboard/presentation/all_transactions_page.dart';
+import 'package:bhago/features/dashboard/presentation/pages/credit_payment/accountant_picker_page.dart';
 import 'package:bhago/features/dashboard/presentation/pages/sections/product_and_stocks.dart';
 import 'package:bhago/features/dashboard/presentation/pages/sections/sale/so_details_page.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:bhago/app/data/local_database.dart';
@@ -291,8 +294,88 @@ class _InvCard extends StatelessWidget {
 
 
 // ===================== Create Sales Order (auto create/update customer on Confirm) =====================
+/// Small dialog that shows accountants and returns the picked Party (or null).
+Future<Party?> showAccountantPicker(BuildContext context, AppDatabase db, int orgId) {
+  final ctrl = CreditPaymentsController(db);
+
+  return showDialog<Party?>(
+    context: context,
+    barrierDismissible: true,
+    builder: (_) {
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: SizedBox(
+          width: 400,
+          height: 480,
+          child: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Text('Pick Accountant', style: Theme.of(context).textTheme.titleLarge),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: StreamBuilder<List<Party>>(
+                    stream: ctrl.watchAccountants(orgId),
+                    builder: (context, snap) {
+                      final list = snap.data ?? const <Party>[];
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (list.isEmpty) {
+                        return Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Center(child: Text('No accountants available')),
+                            IconButton(onPressed: (){
+                              Navigator.push(context, MaterialPageRoute(builder: (context)=>AccountantPickerPage()));
+                            }, icon: Row(children: [
+                              Text('Add accountant'),
+                              Icon(Icons.add),
+                            ],),)
+                          ],
+                        );
+                      }
+                      return ListView.separated(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: list.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) {
+                          final p = list[i];
+                          return ListTile(
+                            leading: CircleAvatar(child: Text(p.name.isNotEmpty ? p.name[0].toUpperCase() : '?')),
+                            title: Text(p.name),
+                            subtitle: (p.phone ?? '').isNotEmpty ? Text(p.phone!) : null,
+                            onTap: () => Navigator.of(context).pop(p),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(onPressed: () => Navigator.of(context).pop(null), child: const Text('Cancel')),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
 
 
+
+/// CreateSoTab and related widgets
 class CreateSoTab extends StatefulWidget {
   final bool isMobile;
   const CreateSoTab({super.key, required this.isMobile});
@@ -305,8 +388,8 @@ class _CreateSoTabState extends State<CreateSoTab> {
   final _form = GlobalKey<FormState>();
   DateTime _soDate = DateTime.now();
 
-  int? _partyId;                   // selected existing party id (if any)
-  CustomerFormData? _custForm;     // live customer fields coming from inline editor
+  int? _partyId; // selected existing party id (if any)
+  CustomerFormData? _custForm; // live customer fields coming from inline editor
 
   final List<_LineItemRow> _rows = [ _LineItemRow() ];
 
@@ -334,6 +417,15 @@ class _CreateSoTabState extends State<CreateSoTab> {
       _defaultWarehouseId = wid;
       _loading = false;
     });
+  }
+
+  @override
+  void dispose() {
+    // dispose controllers held by each row
+    for (final r in _rows) {
+      r.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -411,7 +503,11 @@ class _CreateSoTabState extends State<CreateSoTab> {
               rows: _rows,
               products: _products,
               onAddRow: () => setState(() => _rows.add(_LineItemRow())),
-              onRemoveRow: (i) => setState(() => _rows.removeAt(i)),
+              onRemoveRow: (i) => setState(() {
+                // dispose controllers before removing the row
+                _rows[i].dispose();
+                _rows.removeAt(i);
+              }),
               onChanged: () => setState(() {}),
             ),
 
@@ -423,12 +519,17 @@ class _CreateSoTabState extends State<CreateSoTab> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () async {
+                  
                   if (!_form.currentState!.validate()) return;
                   if (_rows.isEmpty) { _snack(context, 'Add at least one line item'); return; }
-                  if (_defaultWarehouseId == null) { _snack(context, 'No default warehouse configured'); return; }
+                  // if (_defaultWarehouseId == null) {
+                  //    _snack(context, 'No default warehouse configured'); return;
+                  //     }
 
                   // Build items + totals
                   final items = <SoItemInput>[];
+     
+
                   int subtotal = 0, tax = 0, total = 0;
                   for (final r in _rows) {
                     if (r.productId == null || r.qty == null || r.unitPriceMinor == null) {
@@ -495,34 +596,67 @@ class _CreateSoTabState extends State<CreateSoTab> {
                     ),
                   );
                   if (choice == null) return;
+// If cash payment and amount > 0, force accountant selection BEFORE creating SO
+// If cash payment and amount > 0, force accountant selection BEFORE creating SO
+int? accountantPartyId;
+if (choice.mode == PaymentMode.cash) {
+  // choice.cashAmountMinor is now in minor units (paise)
+  final amtMinor = (choice.cashAmountMinor ?? 0);
+  if (amtMinor > 0) {
+    // get orgId (required by picker & payment)
+    final s = context.read<SettingsProvider>();
+    if (s.orgId == null) {
+      _snack(context, 'No org selected');
+      return;
+    }
+    final orgId = s.orgId!;
 
-                  // Create SO
-                  final soId = await ctrl.createSalesOrder(
-                    partyId: resolvedPartyId,
-                    warehouseId: _defaultWarehouseId!,
-                    soDate: _soDate,
-                    items: items,
-                  );
+    // show accountant picker and require selection
+    final accountant = await showAccountantPicker(context, context.read<AppDatabase>(), orgId);
+    if (accountant == null) {
+      // User cancelled picker — do not place order
+      _snack(context, 'Select an accountant to record cash payment');
+      return;
+    }
+    accountantPartyId = accountant.id;
+  }
+}
 
-                  // If cash, record payment
-                  if (choice.mode == PaymentMode.cash) {
-                    final amt = (choice.cashAmountMinor ?? 0);
-                    if (amt > 0) {
-                      final methodId = await ctrl.ensureCashMethod();
-                      await ctrl.addPaymentForSalesOrder(
-                        partyId: resolvedPartyId,
-                        salesOrderId: soId,
-                        methodId: methodId,
-                        amountMinor: amt,
-                        note: 'Payment at SO $soId',
-                      );
-                    }
-                  }
+// Create the Sales Order (only after required accountant selected)
+final soId = await ctrl.createSalesOrder(
+  partyId: resolvedPartyId,
+ 
+  soDate: _soDate,
+  items: items,
+);
+
+// If cash, record payment (with accountantPartyId if available)
+// If cash, record payment (with accountantPartyId if available)
+if (choice.mode == PaymentMode.cash) {
+  final amtMinor = (choice.cashAmountMinor ?? 0); // already in paise
+  if (amtMinor > 0) {
+    final methodId = await ctrl.ensureCashMethod();
+
+    // ensure orgId available (we validated earlier for accountant)
+    final s = context.read<SettingsProvider>();
+    final orgId = s.orgId!;
+
+    await ctrl.addPaymentForSalesOrder(
+      orgId: orgId,
+      partyId: resolvedPartyId,
+      salesOrderId: soId,
+      methodId: methodId,
+      amountMinor: amtMinor,
+      note: 'Payment at SO $soId',
+      accountantPartyId: accountantPartyId,
+    );
+  }
+}
 
                   if (!mounted) return;
                   _snack(context, 'Sales Order $soId created');
 
-                  // Go to details page (shows all transactions + balances)
+                  // Navigate to details page for BOTH cash & credit flows
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => ChangeNotifierProvider.value(
@@ -573,7 +707,7 @@ void _snack(BuildContext context, String msg) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 }
 
-/* -------------------- Line items & totals (unchanged) -------------------- */
+/* -------------------- Line items & totals -------------------- */
 class _LineItemsSection extends StatelessWidget {
   const _LineItemsSection({
     required this.rows,
@@ -650,6 +784,7 @@ class _LineItemsSection extends StatelessWidget {
           final newProd = _findProd(v);
           r.productId = v;
           r.unitPriceMinor = newProd?.priceMinor ?? newProd?.mrpMinor ?? newProd?.costMinor ?? 0;
+          r.unitPriceMinor=(r.unitPriceMinor!/100).toInt();
           r.gstPct = newProd?.gstPercent ?? 0;
           onChanged();
         },
@@ -723,7 +858,7 @@ class _LineItemsSection extends StatelessWidget {
               child: TextFormField(
                 initialValue: r.unitPriceMinor?.toString(),
                 keyboardType: TextInputType.number,
-                decoration: _box('Unit price'),
+                decoration: _box('Default'),
                 onChanged: (v) { r.unitPriceMinor = int.tryParse(v.trim()); onChanged(); },
                 validator: (_) => (r.unitPriceMinor == null || r.unitPriceMinor! < 0) ? 'Req' : null,
               ),
@@ -915,7 +1050,9 @@ class _LineItemRow {
   int? productId;
   int? qty;
   int? unitPriceMinor;
-  int? gstPct; // cached from product
+  int? gstPct;
+  
+  void dispose() {} // cached from product
 }
 
 class _TotalsPreview extends StatelessWidget {
@@ -967,8 +1104,11 @@ String _inr(int n) {
   return '₹$headWithCommas,$tail';
 }
 
-/* ================= Payment Dialog (Cash / Credit) ================= */
+
+
+
 enum PaymentMode { cash, credit }
+
 class _PaymentChoice {
   final PaymentMode mode;
   final int? cashAmountMinor;
@@ -993,7 +1133,10 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   @override
   void initState() {
     super.initState();
-    _amountCtrl.text = widget.orderTotalMinor.toString();
+    // show order total in RUPEES (friendly), but we'll return minor units when continuing
+ 
+    // show without unnecessary trailing zeros if it's whole
+ _amountCtrl.text = widget.orderTotalMinor.toString();
     _statsF = widget.ctrl.getPartyStats(widget.partyId);
   }
 
@@ -1003,7 +1146,11 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     super.dispose();
   }
 
-  String _inr(int n) => _inrFmt(n);
+
+
+
+
+   String _inr(int n) => _inrFmt(n);
   static String _inrFmt(int n) {
     final s = n.toString();
     if (s.length <= 3) return '₹$s';
@@ -1012,7 +1159,6 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     final headWithCommas = head.replaceAllMapped(RegExp(r'(\d)(?=(\d{2})+(?!\d))'), (m) => '${m[1]},');
     return '₹$headWithCommas,$tail';
   }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1054,16 +1200,16 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _amountCtrl,
-                          keyboardType: TextInputType.number,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: InputDecoration(
-                            labelText: 'Amount to collect now',
+                            labelText: 'Amount to collect now (₹)',
                             filled: true,
                             fillColor: theme.colorScheme.surfaceVariant.withOpacity(.4),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Text('Order Total: ${_inr(widget.orderTotalMinor)}',
+                      Text('Order Total: ${_inr(widget.orderTotalMinor)}',
                           style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                       ],
                       const SizedBox(height: 8),
@@ -1081,15 +1227,18 @@ class _PaymentDialogState extends State<_PaymentDialog> {
               Row(children: [
                 Expanded(
                   child: FilledButton(
-                    onPressed: () {
+                   onPressed: () {
                       int? amt;
+
                       if (_mode == PaymentMode.cash) {
-                        amt = int.tryParse(_amountCtrl.text.trim());
-                        if (amt == null || amt < 0) {
+                         amt = int.tryParse(_amountCtrl.text.trim());
+                    
+if (amt == null || amt < 0) {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid amount')));
                           return;
                         }
-                      }
+                     }
+
                       Navigator.pop(context, _PaymentChoice(mode: _mode, cashAmountMinor: amt));
                     },
                     style: FilledButton.styleFrom(
@@ -1142,10 +1291,14 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   }
 }
 
+
+
+
 /* ================== Customer Inline Editor (NO save/use-only) ================== */
 
+// (Copied from your original file — keep unchanged)
 class CustomerFormData {
-  final int? id;          // selected party id (if picked from suggestions)
+  final int? id;
   final String name;
   final String? phone, gstin, email, farmName, address;
 
@@ -1168,14 +1321,14 @@ class CustomerFormData {
     String? farmName,
     String? address,
   }) => CustomerFormData(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      phone: phone ?? this.phone,
-      gstin: gstin ?? this.gstin,
-      email: email ?? this.email,
-      farmName: farmName ?? this.farmName,
-      address: address ?? this.address,
-    );
+    id: id ?? this.id,
+    name: name ?? this.name,
+    phone: phone ?? this.phone,
+    gstin: gstin ?? this.gstin,
+    email: email ?? this.email,
+    farmName: farmName ?? this.farmName,
+    address: address ?? this.address,
+  );
 }
 
 class CustomerInlineEditor extends StatefulWidget {
@@ -1184,8 +1337,8 @@ class CustomerInlineEditor extends StatefulWidget {
     required this.customers,
     required this.ctrl,
     this.initial,
-    required this.onPick,         // selected existing suggestion
-    required this.onFormChanged,  // live form values (for auto create/update later)
+    required this.onPick,
+    required this.onFormChanged,
   });
 
   final List<Party> customers;
@@ -1199,11 +1352,9 @@ class CustomerInlineEditor extends StatefulWidget {
 }
 
 class _CustomerInlineEditorState extends State<CustomerInlineEditor> {
-  // Search + focus
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
 
-  // Fields
   final _name   = TextEditingController();
   final _phone  = TextEditingController();
   final _gstin  = TextEditingController();
@@ -1224,7 +1375,7 @@ class _CustomerInlineEditorState extends State<CustomerInlineEditor> {
     _search.addListener(_mirrorSearchIntoFields);
 
     for (final c in [_name, _phone, _gstin, _email, _farm, _addr]) {
-      c.addListener(_emit); // push live form data up
+      c.addListener(_emit);
     }
   }
 
@@ -1273,7 +1424,7 @@ class _CustomerInlineEditorState extends State<CustomerInlineEditor> {
     if (qq.isEmpty) return const Iterable<Party>.empty();
     bool match(String? s) => (s ?? '').toLowerCase().contains(qq);
     return widget.customers.where((p) =>
-      match(p.name) || match(p.phone) || match(p.farmName) || match(p.gstin)
+    match(p.name) || match(p.phone) || match(p.farmName) || match(p.gstin)
     ).take(12);
   }
 
@@ -1289,69 +1440,59 @@ class _CustomerInlineEditorState extends State<CustomerInlineEditor> {
     ),
   );
 
-  // Autofill name/phone/gstin from search text until user picks a suggestion
-void _mirrorSearchIntoFields() {
-  // If an existing party is selected, don't overwrite fields.
-  if (_selected != null) return;
+  void _mirrorSearchIntoFields() {
+    if (_selected != null) return;
 
-  final raw = _search.text.trim();
-  if (raw.isEmpty) return;
+    final raw = _search.text.trim();
+    if (raw.isEmpty) return;
 
-  // 0) GSTIN (keep your previous behavior)
-  final gstMatch = RegExp(
-    r'\b[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b',
-    caseSensitive: false,
-  ).firstMatch(raw);
-  var working = raw;
+    final gstMatch = RegExp(
+      r'\b[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    var working = raw;
 
-  if (gstMatch != null) {
-    final gst = gstMatch.group(0)!.toUpperCase();
-    if (_gstin.text.isEmpty) _gstin.text = gst;
-    working = working.replaceFirst(gstMatch.group(0)!, '').trim();
-  }
+    if (gstMatch != null) {
+      final gst = gstMatch.group(0)!.toUpperCase();
+      if (_gstin.text.isEmpty) _gstin.text = gst;
+      working = working.replaceFirst(gstMatch.group(0)!, '').trim();
+    }
 
-  // 1) If the WHOLE input is numeric-like (+, spaces, (), -, digits),
-  //    treat it as a phone; don't touch name.
-  final isNumericLike = RegExp(r'^[\d\+\-\s\(\)]+$').hasMatch(working);
-  if (isNumericLike) {
+    final isNumericLike = RegExp(r'^[\d\+\-\s\(\)]+$').hasMatch(working);
+    if (isNumericLike) {
+      final digits = working.replaceAll(RegExp(r'\D'), '');
+      if (digits.isNotEmpty) {
+        final last10 = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+        if (_phone.text != last10) _phone.text = last10;
+        _emit();
+      }
+      return;
+    }
+
     final digits = working.replaceAll(RegExp(r'\D'), '');
     if (digits.isNotEmpty) {
       final last10 = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
-      if (_phone.text != last10) _phone.text = last10;
-      _emit();
+      if (_phone.text.isEmpty) _phone.text = last10;
+      working = working.replaceAll(RegExp(r'\d'), ' ').trim();
     }
-    return; // Do not auto-fill name when purely numeric-like
-  }
 
-  // 2) Mixed input: pull any phone digits out, and use the remainder as name.
-  //    (e.g. "ram 9876543210" => phone=9876543210, name="Ram")
-  final digits = working.replaceAll(RegExp(r'\D'), '');
-  if (digits.isNotEmpty) {
-    final last10 = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
-    if (_phone.text.isEmpty) _phone.text = last10;
-    working = working.replaceAll(RegExp(r'\d'), ' ').trim();
-  }
+    working = working
+        .replaceAll(RegExp(r'[-|,]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
 
-  // Clean up punctuation and excessive spaces
-  working = working
-      .replaceAll(RegExp(r'[-|,]'), ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-
-  // Title-case the remaining text into Name (only if empty or different)
-  if (working.isNotEmpty) {
-    final title = working
-        .split(' ')
-        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
-        .join(' ');
-    if (_name.text.isEmpty || _name.text != title) {
-      _name.text = title;
+    if (working.isNotEmpty) {
+      final title = working
+          .split(' ')
+          .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+          .join(' ');
+      if (_name.text.isEmpty || _name.text != title) {
+        _name.text = title;
+      }
     }
+
+    _emit();
   }
-
-  _emit();
-}
-
 
   void _clearAll() {
     setState(() { _selected = null; });
@@ -1372,7 +1513,6 @@ void _mirrorSearchIntoFields() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Search + suggestions
         RawAutocomplete<Party>(
           textEditingController: _search,
           focusNode: _searchFocus,
@@ -1427,7 +1567,6 @@ void _mirrorSearchIntoFields() {
 
         const SizedBox(height: 10),
 
-        // Fields only (no Save / no Use-only buttons)
         isMobile
             ? Column(children: _fields(context))
             : Row(
@@ -1459,32 +1598,39 @@ void _mirrorSearchIntoFields() {
   }
 
   List<Widget> _fields(BuildContext ctx) => [
-        TextField(controller: _name,  decoration: _box(ctx, 'Name *')),
-        const SizedBox(height: 8),
-        TextField(controller: _phone, decoration: _box(ctx, 'Phone (optional)'), keyboardType: TextInputType.phone),
-        const SizedBox(height: 8),
-        TextField(controller: _gstin, decoration: _box(ctx, 'GSTIN (optional)')),
-        const SizedBox(height: 8),
-        TextField(controller: _email, decoration: _box(ctx, 'Email (optional)')),
-        const SizedBox(height: 8),
-        TextField(controller: _farm,  decoration: _box(ctx, 'Farm name (optional)')),
-        const SizedBox(height: 8),
-        TextField(controller: _addr,  decoration: _box(ctx, 'Address (optional)'), maxLines: 2),
-      ];
+    TextField(controller: _name,  decoration: _box(ctx, 'Name *')),
+    const SizedBox(height: 8),
+    TextField(controller: _phone, decoration: _box(ctx, 'Phone (optional)'), keyboardType: TextInputType.phone),
+    const SizedBox(height: 8),
+    TextField(controller: _gstin, decoration: _box(ctx, 'GSTIN (optional)')),
+    const SizedBox(height: 8),
+    TextField(controller: _email, decoration: _box(ctx, 'Email (optional)')),
+    const SizedBox(height: 8),
+    TextField(controller: _farm,  decoration: _box(ctx, 'Farm name (optional)')),
+    const SizedBox(height: 8),
+    TextField(controller: _addr,  decoration: _box(ctx, 'Address (optional)'), maxLines: 2),
+  ];
 
   List<Widget> _fieldsLeft(BuildContext ctx) => [
-        TextField(controller: _name,  decoration: _box(ctx, 'Name *')),
-        const SizedBox(height: 8),
-        TextField(controller: _phone, decoration: _box(ctx, 'Phone (optional)'), keyboardType: TextInputType.phone),
-        const SizedBox(height: 8),
-        TextField(controller: _gstin, decoration: _box(ctx, 'GSTIN (optional)')),
-      ];
+    TextField(controller: _name,  decoration: _box(ctx, 'Name *')),
+    const SizedBox(height: 8),
+    TextField(controller: _phone, decoration: _box(ctx, 'Phone (optional)'), keyboardType: TextInputType.phone),
+    const SizedBox(height: 8),
+    TextField(controller: _gstin, decoration: _box(ctx, 'GSTIN (optional)')),
+  ];
 
   List<Widget> _fieldsRight(BuildContext ctx) => [
-        TextField(controller: _email, decoration: _box(ctx, 'Email (optional)')),
-        const SizedBox(height: 8),
-        TextField(controller: _farm,  decoration: _box(ctx, 'Farm name (optional)')),
-        const SizedBox(height: 8),
-        TextField(controller: _addr,  decoration: _box(ctx, 'Address (optional)'), maxLines: 2),
-      ];
+    TextField(controller: _email, decoration: _box(ctx, 'Email (optional)')),
+    const SizedBox(height: 8),
+    TextField(controller: _farm,  decoration: _box(ctx, 'Farm name (optional)')),
+    const SizedBox(height: 8),
+    TextField(controller: _addr,  decoration: _box(ctx, 'Address (optional)'), maxLines: 2),
+  ];
 }
+
+/* ================= Helper: showAccountantPicker =================
+   This function should exist in your codebase already (you earlier added it).
+   Ensure it's imported/visible here. If not, paste your showAccountantPicker
+   implementation (the recommended one uses your CreditPaymentsController.watchAccountants).
+*/
+

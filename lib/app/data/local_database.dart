@@ -222,11 +222,7 @@ class SalesOrders extends Table {
       .customConstraint(
         'REFERENCES parties(id) ON UPDATE CASCADE ON DELETE RESTRICT',
       )();
-  IntColumn get warehouseId => integer()
-      .named('warehouse_id')
-      .customConstraint(
-        'REFERENCES warehouses(id) ON UPDATE CASCADE ON DELETE RESTRICT',
-      )();
+
   DateTimeColumn get soDate => dateTime().nullable().named('so_date')();
   IntColumn get status => integer()
       .map(const EnumIndexConverter<SoStatus>(SoStatus.values))

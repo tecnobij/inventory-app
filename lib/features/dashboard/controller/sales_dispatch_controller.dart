@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
 
@@ -811,34 +812,88 @@ Stream<List<LedgerRowVM>> watchPartyLedger(int partyId) {
   }
 
   /// Insert an incoming payment tied to a Sales Order via ref_no = 'SO-<id>'
-  Future<int> addPaymentForSalesOrder({
-    required int partyId,
-    required int salesOrderId,
-    required int methodId,
-    required int amountMinor,
-    String? note,
-  }) {
-    return db.into(db.payments).insert(
-          PaymentsCompanion.insert(
-            orgId: orgId,
-            partyId: partyId,
-            invoiceId: const drift.Value.absent(), // not via invoice
-            methodId: methodId,
-            direction: PayDir.in_,                 // incoming
-            amountMinor: amountMinor,
-            refNo: drift.Value('SO-$salesOrderId'),
-            note: drift.Value(note ?? 'Payment at SO $salesOrderId'),
-            paidAt: drift.Value(DateTime.now()),
-            createdAt: drift.Value(DateTime.now()),
-          ),
-        );
-  }
+  ///  Future<int> addPaymentForSalesOrder({
+  //   required int partyId,
+  //   required int salesOrderId,
+  //   required int methodId,
+  //   required int amountMinor,
+  //   String? note,
+  // }) {
+  //   return db.into(db.payments).insert(
+  //         PaymentsCompanion.insert(
+  //           orgId: orgId,
+  //           partyId: partyId,
+  //           invoiceId: const drift.Value.absent(), // not via invoice
+  //           methodId: methodId,
+  //           direction: PayDir.in_,                 // incoming
+  //           amountMinor: amountMinor,
+  //           refNo: drift.Value('SO-$salesOrderId'),
+  //           note: drift.Value(note ?? 'Payment at SO $salesOrderId'),
+  //           paidAt: drift.Value(DateTime.now()),
+  //           createdAt: drift.Value(DateTime.now()),
+  //         ),
+  //       );
+  // }
+
+Future<int> addPaymentForSalesOrder({
+  required int orgId,                // NEW required param
+  required int partyId,
+  required int salesOrderId,
+  required int methodId,
+  required int amountMinor,
+  String? note,
+  int? accountantPartyId, // optional
+}) {
+  final now = DateTime.now();
+
+  return db.into(db.payments).insert(
+    PaymentsCompanion.insert(
+        orgId: orgId,
+     partyId: partyId,
+       invoiceId: const drift.Value.absent(), // not via invoice
+      methodId: methodId,
+      direction:PayDir.in_, // incoming
+     amountMinor: amountMinor,
+      refNo: Value('SO-$salesOrderId'),
+      note: Value(note ?? 'Payment at SO $salesOrderId'),
+      paidAt: Value(now),
+      createdAt: Value(now),
+      accountantPartyId: accountantPartyId == null
+          ? const Value.absent()
+          : Value(accountantPartyId),
+    ),
+  );
+}
+
+
+
+  // Future<int> addPaymentForSalesOrder({
+  //   required int partyId,
+  //   required int salesOrderId,
+  //   required int methodId,
+  //   required int amountMinor,
+  //   String? note,
+  // }) {
+  //   return db.into(db.payments).insert(
+  //         PaymentsCompanion.insert(
+  //           orgId: orgId,
+  //           partyId: partyId,
+  //           invoiceId: const drift.Value.absent(), // not via invoice
+  //           methodId: methodId,
+  //           direction: PayDir.in_,                 // incoming
+  //           amountMinor: amountMinor,
+  //           refNo: drift.Value('SO-$salesOrderId'),
+  //           note: drift.Value(note ?? 'Payment at SO $salesOrderId'),
+  //           paidAt: drift.Value(DateTime.now()),
+  //           createdAt: drift.Value(DateTime.now()),
+  //         ),
+  //       );
+  // }
 
 
 // -------------------- 1) CREATE SO (no snapshots) --------------------
 Future<int> createSalesOrder({
   required int partyId,
-  required int warehouseId,
   required DateTime soDate,
   required List<SoItemInput> items,
 }) async {
@@ -865,33 +920,19 @@ Future<int> createSalesOrder({
   final total = subtotal + tax;
 
   return await db.transaction(() async {
-    final soId = await db.into(db.salesOrders).insert(
-      SalesOrdersCompanion.insert(
-        orgId: orgId,
-        partyId: partyId,
-        warehouseId: warehouseId,
-        soDate: drift.Value(soDate),
-        status: drift.Value(SoStatus.confirmed),   // enum directly (not index)
-        subtotalMinor: drift.Value(subtotal),
-        taxMinor: drift.Value(tax),
-        totalMinor: drift.Value(total),
-
-        createdAt: drift.Value(DateTime.now()),
-        updatedAt: drift.Value(DateTime.now()),
-      ),
-    );
-
-
-
-
-
-
-
-
-
-
-
-
+  final soId = await db.into(db.salesOrders).insert(
+    SalesOrdersCompanion.insert(
+      orgId: orgId,
+      partyId: partyId,
+      soDate: drift.Value(soDate),
+      status: drift.Value(SoStatus.confirmed),
+      subtotalMinor: drift.Value(subtotal),
+      taxMinor: drift.Value(tax),
+      totalMinor: drift.Value(total),
+      createdAt: drift.Value(DateTime.now()),
+      updatedAt: drift.Value(DateTime.now()),
+    ),
+  );
 
     for (final it in items) {
       final net = it.qty * it.unitPriceMinor;
@@ -902,34 +943,11 @@ Future<int> createSalesOrder({
           qty: it.qty,
           unitPriceMinor: it.unitPriceMinor,
           lineTotalMinor: net,
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
           createdAt: drift.Value(DateTime.now()),
           updatedAt: drift.Value(DateTime.now()),
         ),
       );
     }
-
-    // ✅ No snapshot write here (removed)
-
     return soId;
   });
 }

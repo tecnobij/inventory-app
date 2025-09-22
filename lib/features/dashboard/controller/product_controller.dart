@@ -330,7 +330,12 @@ class ProductController {
   }
 
   static String _minorToRupeesStr(int? minor) {
-    if (minor == null) return '';
-    return (minor / 100.0).toStringAsFixed(2);
+  if (minor == null) return '';
+  final rupees = minor / 100.0;
+  // if no decimal part → drop ".00"
+  if (rupees == rupees.truncateToDouble()) {
+    return rupees.toInt().toString();
   }
+  return rupees.toStringAsFixed(2);
+}
 }

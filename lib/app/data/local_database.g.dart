@@ -4663,19 +4663,6 @@ class $SalesOrdersTable extends SalesOrders
     $customConstraints:
         'REFERENCES parties(id) ON UPDATE CASCADE ON DELETE RESTRICT',
   );
-  static const VerificationMeta _warehouseIdMeta = const VerificationMeta(
-    'warehouseId',
-  );
-  @override
-  late final GeneratedColumn<int> warehouseId = GeneratedColumn<int>(
-    'warehouse_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-    $customConstraints:
-        'REFERENCES warehouses(id) ON UPDATE CASCADE ON DELETE RESTRICT',
-  );
   static const VerificationMeta _soDateMeta = const VerificationMeta('soDate');
   @override
   late final GeneratedColumn<DateTime> soDate = GeneratedColumn<DateTime>(
@@ -4754,7 +4741,6 @@ class $SalesOrdersTable extends SalesOrders
     id,
     orgId,
     partyId,
-    warehouseId,
     soDate,
     status,
     subtotalMinor,
@@ -4793,17 +4779,6 @@ class $SalesOrdersTable extends SalesOrders
       );
     } else if (isInserting) {
       context.missing(_partyIdMeta);
-    }
-    if (data.containsKey('warehouse_id')) {
-      context.handle(
-        _warehouseIdMeta,
-        warehouseId.isAcceptableOrUnknown(
-          data['warehouse_id']!,
-          _warehouseIdMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_warehouseIdMeta);
     }
     if (data.containsKey('so_date')) {
       context.handle(
@@ -4865,10 +4840,6 @@ class $SalesOrdersTable extends SalesOrders
         DriftSqlType.int,
         data['${effectivePrefix}party_id'],
       )!,
-      warehouseId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}warehouse_id'],
-      )!,
       soDate: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}so_date'],
@@ -4917,7 +4888,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
   final int id;
   final int orgId;
   final int partyId;
-  final int warehouseId;
   final DateTime? soDate;
   final SoStatus? status;
   final int? subtotalMinor;
@@ -4929,7 +4899,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
     required this.id,
     required this.orgId,
     required this.partyId,
-    required this.warehouseId,
     this.soDate,
     this.status,
     this.subtotalMinor,
@@ -4944,7 +4913,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
     map['id'] = Variable<int>(id);
     map['org_id'] = Variable<int>(orgId);
     map['party_id'] = Variable<int>(partyId);
-    map['warehouse_id'] = Variable<int>(warehouseId);
     if (!nullToAbsent || soDate != null) {
       map['so_date'] = Variable<DateTime>(soDate);
     }
@@ -4976,7 +4944,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
       id: Value(id),
       orgId: Value(orgId),
       partyId: Value(partyId),
-      warehouseId: Value(warehouseId),
       soDate: soDate == null && nullToAbsent
           ? const Value.absent()
           : Value(soDate),
@@ -5010,7 +4977,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
       id: serializer.fromJson<int>(json['id']),
       orgId: serializer.fromJson<int>(json['orgId']),
       partyId: serializer.fromJson<int>(json['partyId']),
-      warehouseId: serializer.fromJson<int>(json['warehouseId']),
       soDate: serializer.fromJson<DateTime?>(json['soDate']),
       status: serializer.fromJson<SoStatus?>(json['status']),
       subtotalMinor: serializer.fromJson<int?>(json['subtotalMinor']),
@@ -5027,7 +4993,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
       'id': serializer.toJson<int>(id),
       'orgId': serializer.toJson<int>(orgId),
       'partyId': serializer.toJson<int>(partyId),
-      'warehouseId': serializer.toJson<int>(warehouseId),
       'soDate': serializer.toJson<DateTime?>(soDate),
       'status': serializer.toJson<SoStatus?>(status),
       'subtotalMinor': serializer.toJson<int?>(subtotalMinor),
@@ -5042,7 +5007,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
     int? id,
     int? orgId,
     int? partyId,
-    int? warehouseId,
     Value<DateTime?> soDate = const Value.absent(),
     Value<SoStatus?> status = const Value.absent(),
     Value<int?> subtotalMinor = const Value.absent(),
@@ -5054,7 +5018,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
     id: id ?? this.id,
     orgId: orgId ?? this.orgId,
     partyId: partyId ?? this.partyId,
-    warehouseId: warehouseId ?? this.warehouseId,
     soDate: soDate.present ? soDate.value : this.soDate,
     status: status.present ? status.value : this.status,
     subtotalMinor: subtotalMinor.present
@@ -5070,9 +5033,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
       id: data.id.present ? data.id.value : this.id,
       orgId: data.orgId.present ? data.orgId.value : this.orgId,
       partyId: data.partyId.present ? data.partyId.value : this.partyId,
-      warehouseId: data.warehouseId.present
-          ? data.warehouseId.value
-          : this.warehouseId,
       soDate: data.soDate.present ? data.soDate.value : this.soDate,
       status: data.status.present ? data.status.value : this.status,
       subtotalMinor: data.subtotalMinor.present
@@ -5093,7 +5053,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
           ..write('id: $id, ')
           ..write('orgId: $orgId, ')
           ..write('partyId: $partyId, ')
-          ..write('warehouseId: $warehouseId, ')
           ..write('soDate: $soDate, ')
           ..write('status: $status, ')
           ..write('subtotalMinor: $subtotalMinor, ')
@@ -5110,7 +5069,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
     id,
     orgId,
     partyId,
-    warehouseId,
     soDate,
     status,
     subtotalMinor,
@@ -5126,7 +5084,6 @@ class SalesOrder extends DataClass implements Insertable<SalesOrder> {
           other.id == this.id &&
           other.orgId == this.orgId &&
           other.partyId == this.partyId &&
-          other.warehouseId == this.warehouseId &&
           other.soDate == this.soDate &&
           other.status == this.status &&
           other.subtotalMinor == this.subtotalMinor &&
@@ -5140,7 +5097,6 @@ class SalesOrdersCompanion extends UpdateCompanion<SalesOrder> {
   final Value<int> id;
   final Value<int> orgId;
   final Value<int> partyId;
-  final Value<int> warehouseId;
   final Value<DateTime?> soDate;
   final Value<SoStatus?> status;
   final Value<int?> subtotalMinor;
@@ -5152,7 +5108,6 @@ class SalesOrdersCompanion extends UpdateCompanion<SalesOrder> {
     this.id = const Value.absent(),
     this.orgId = const Value.absent(),
     this.partyId = const Value.absent(),
-    this.warehouseId = const Value.absent(),
     this.soDate = const Value.absent(),
     this.status = const Value.absent(),
     this.subtotalMinor = const Value.absent(),
@@ -5165,7 +5120,6 @@ class SalesOrdersCompanion extends UpdateCompanion<SalesOrder> {
     this.id = const Value.absent(),
     required int orgId,
     required int partyId,
-    required int warehouseId,
     this.soDate = const Value.absent(),
     this.status = const Value.absent(),
     this.subtotalMinor = const Value.absent(),
@@ -5174,13 +5128,11 @@ class SalesOrdersCompanion extends UpdateCompanion<SalesOrder> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   }) : orgId = Value(orgId),
-       partyId = Value(partyId),
-       warehouseId = Value(warehouseId);
+       partyId = Value(partyId);
   static Insertable<SalesOrder> custom({
     Expression<int>? id,
     Expression<int>? orgId,
     Expression<int>? partyId,
-    Expression<int>? warehouseId,
     Expression<DateTime>? soDate,
     Expression<int>? status,
     Expression<int>? subtotalMinor,
@@ -5193,7 +5145,6 @@ class SalesOrdersCompanion extends UpdateCompanion<SalesOrder> {
       if (id != null) 'id': id,
       if (orgId != null) 'org_id': orgId,
       if (partyId != null) 'party_id': partyId,
-      if (warehouseId != null) 'warehouse_id': warehouseId,
       if (soDate != null) 'so_date': soDate,
       if (status != null) 'status': status,
       if (subtotalMinor != null) 'subtotal_minor': subtotalMinor,
@@ -5208,7 +5159,6 @@ class SalesOrdersCompanion extends UpdateCompanion<SalesOrder> {
     Value<int>? id,
     Value<int>? orgId,
     Value<int>? partyId,
-    Value<int>? warehouseId,
     Value<DateTime?>? soDate,
     Value<SoStatus?>? status,
     Value<int?>? subtotalMinor,
@@ -5221,7 +5171,6 @@ class SalesOrdersCompanion extends UpdateCompanion<SalesOrder> {
       id: id ?? this.id,
       orgId: orgId ?? this.orgId,
       partyId: partyId ?? this.partyId,
-      warehouseId: warehouseId ?? this.warehouseId,
       soDate: soDate ?? this.soDate,
       status: status ?? this.status,
       subtotalMinor: subtotalMinor ?? this.subtotalMinor,
@@ -5243,9 +5192,6 @@ class SalesOrdersCompanion extends UpdateCompanion<SalesOrder> {
     }
     if (partyId.present) {
       map['party_id'] = Variable<int>(partyId.value);
-    }
-    if (warehouseId.present) {
-      map['warehouse_id'] = Variable<int>(warehouseId.value);
     }
     if (soDate.present) {
       map['so_date'] = Variable<DateTime>(soDate.value);
@@ -5279,7 +5225,6 @@ class SalesOrdersCompanion extends UpdateCompanion<SalesOrder> {
           ..write('id: $id, ')
           ..write('orgId: $orgId, ')
           ..write('partyId: $partyId, ')
-          ..write('warehouseId: $warehouseId, ')
           ..write('soDate: $soDate, ')
           ..write('status: $status, ')
           ..write('subtotalMinor: $subtotalMinor, ')
@@ -9660,13 +9605,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
-        'warehouses',
-        limitUpdateKind: UpdateKind.update,
-      ),
-      result: [TableUpdate('sales_orders', kind: UpdateKind.update)],
-    ),
-    WritePropagation(
-      on: TableUpdateQuery.onTableName(
         'sales_orders',
         limitUpdateKind: UpdateKind.delete,
       ),
@@ -11163,27 +11101,6 @@ final class $$WarehousesTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
-
-  static MultiTypedResultKey<$SalesOrdersTable, List<SalesOrder>>
-  _salesOrdersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.salesOrders,
-    aliasName: $_aliasNameGenerator(
-      db.warehouses.id,
-      db.salesOrders.warehouseId,
-    ),
-  );
-
-  $$SalesOrdersTableProcessedTableManager get salesOrdersRefs {
-    final manager = $$SalesOrdersTableTableManager(
-      $_db,
-      $_db.salesOrders,
-    ).filter((f) => f.warehouseId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_salesOrdersRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
 }
 
 class $$WarehousesTableFilterComposer
@@ -11289,31 +11206,6 @@ class $$WarehousesTableFilterComposer
           }) => $$InventoryMovesTableFilterComposer(
             $db: $db,
             $table: $db.inventoryMoves,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<bool> salesOrdersRefs(
-    Expression<bool> Function($$SalesOrdersTableFilterComposer f) f,
-  ) {
-    final $$SalesOrdersTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.salesOrders,
-      getReferencedColumn: (t) => t.warehouseId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$SalesOrdersTableFilterComposer(
-            $db: $db,
-            $table: $db.salesOrders,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -11486,31 +11378,6 @@ class $$WarehousesTableAnnotationComposer
     );
     return f(composer);
   }
-
-  Expression<T> salesOrdersRefs<T extends Object>(
-    Expression<T> Function($$SalesOrdersTableAnnotationComposer a) f,
-  ) {
-    final $$SalesOrdersTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.salesOrders,
-      getReferencedColumn: (t) => t.warehouseId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$SalesOrdersTableAnnotationComposer(
-            $db: $db,
-            $table: $db.salesOrders,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 }
 
 class $$WarehousesTableTableManager
@@ -11530,7 +11397,6 @@ class $$WarehousesTableTableManager
             bool orgId,
             bool productStocksRefs,
             bool inventoryMovesRefs,
-            bool salesOrdersRefs,
           })
         > {
   $$WarehousesTableTableManager(_$AppDatabase db, $WarehousesTable table)
@@ -11593,14 +11459,12 @@ class $$WarehousesTableTableManager
                 orgId = false,
                 productStocksRefs = false,
                 inventoryMovesRefs = false,
-                salesOrdersRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (productStocksRefs) db.productStocks,
                     if (inventoryMovesRefs) db.inventoryMoves,
-                    if (salesOrdersRefs) db.salesOrders,
                   ],
                   addJoins:
                       <
@@ -11679,27 +11543,6 @@ class $$WarehousesTableTableManager
                               ),
                           typedResults: items,
                         ),
-                      if (salesOrdersRefs)
-                        await $_getPrefetchedData<
-                          Warehouse,
-                          $WarehousesTable,
-                          SalesOrder
-                        >(
-                          currentTable: table,
-                          referencedTable: $$WarehousesTableReferences
-                              ._salesOrdersRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$WarehousesTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).salesOrdersRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.warehouseId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
                     ];
                   },
                 );
@@ -11724,7 +11567,6 @@ typedef $$WarehousesTableProcessedTableManager =
         bool orgId,
         bool productStocksRefs,
         bool inventoryMovesRefs,
-        bool salesOrdersRefs,
       })
     >;
 typedef $$PartiesTableCreateCompanionBuilder =
@@ -15407,7 +15249,6 @@ typedef $$SalesOrdersTableCreateCompanionBuilder =
       Value<int> id,
       required int orgId,
       required int partyId,
-      required int warehouseId,
       Value<DateTime?> soDate,
       Value<SoStatus?> status,
       Value<int?> subtotalMinor,
@@ -15421,7 +15262,6 @@ typedef $$SalesOrdersTableUpdateCompanionBuilder =
       Value<int> id,
       Value<int> orgId,
       Value<int> partyId,
-      Value<int> warehouseId,
       Value<DateTime?> soDate,
       Value<SoStatus?> status,
       Value<int?> subtotalMinor,
@@ -15465,25 +15305,6 @@ final class $$SalesOrdersTableReferences
       $_db.parties,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_partyIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-
-  static $WarehousesTable _warehouseIdTable(_$AppDatabase db) =>
-      db.warehouses.createAlias(
-        $_aliasNameGenerator(db.salesOrders.warehouseId, db.warehouses.id),
-      );
-
-  $$WarehousesTableProcessedTableManager get warehouseId {
-    final $_column = $_itemColumn<int>('warehouse_id')!;
-
-    final manager = $$WarehousesTableTableManager(
-      $_db,
-      $_db.warehouses,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_warehouseIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -15623,29 +15444,6 @@ class $$SalesOrdersTableFilterComposer
           }) => $$PartiesTableFilterComposer(
             $db: $db,
             $table: $db.parties,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$WarehousesTableFilterComposer get warehouseId {
-    final $$WarehousesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.warehouseId,
-      referencedTable: $db.warehouses,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$WarehousesTableFilterComposer(
-            $db: $db,
-            $table: $db.warehouses,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -15800,29 +15598,6 @@ class $$SalesOrdersTableOrderingComposer
     );
     return composer;
   }
-
-  $$WarehousesTableOrderingComposer get warehouseId {
-    final $$WarehousesTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.warehouseId,
-      referencedTable: $db.warehouses,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$WarehousesTableOrderingComposer(
-            $db: $db,
-            $table: $db.warehouses,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
 }
 
 class $$SalesOrdersTableAnnotationComposer
@@ -15908,29 +15683,6 @@ class $$SalesOrdersTableAnnotationComposer
     return composer;
   }
 
-  $$WarehousesTableAnnotationComposer get warehouseId {
-    final $$WarehousesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.warehouseId,
-      referencedTable: $db.warehouses,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$WarehousesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.warehouses,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
   Expression<T> salesOrderItemsRefs<T extends Object>(
     Expression<T> Function($$SalesOrderItemsTableAnnotationComposer a) f,
   ) {
@@ -15998,7 +15750,6 @@ class $$SalesOrdersTableTableManager
           PrefetchHooks Function({
             bool orgId,
             bool partyId,
-            bool warehouseId,
             bool salesOrderItemsRefs,
             bool invoicesRefs,
           })
@@ -16019,7 +15770,6 @@ class $$SalesOrdersTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> orgId = const Value.absent(),
                 Value<int> partyId = const Value.absent(),
-                Value<int> warehouseId = const Value.absent(),
                 Value<DateTime?> soDate = const Value.absent(),
                 Value<SoStatus?> status = const Value.absent(),
                 Value<int?> subtotalMinor = const Value.absent(),
@@ -16031,7 +15781,6 @@ class $$SalesOrdersTableTableManager
                 id: id,
                 orgId: orgId,
                 partyId: partyId,
-                warehouseId: warehouseId,
                 soDate: soDate,
                 status: status,
                 subtotalMinor: subtotalMinor,
@@ -16045,7 +15794,6 @@ class $$SalesOrdersTableTableManager
                 Value<int> id = const Value.absent(),
                 required int orgId,
                 required int partyId,
-                required int warehouseId,
                 Value<DateTime?> soDate = const Value.absent(),
                 Value<SoStatus?> status = const Value.absent(),
                 Value<int?> subtotalMinor = const Value.absent(),
@@ -16057,7 +15805,6 @@ class $$SalesOrdersTableTableManager
                 id: id,
                 orgId: orgId,
                 partyId: partyId,
-                warehouseId: warehouseId,
                 soDate: soDate,
                 status: status,
                 subtotalMinor: subtotalMinor,
@@ -16078,7 +15825,6 @@ class $$SalesOrdersTableTableManager
               ({
                 orgId = false,
                 partyId = false,
-                warehouseId = false,
                 salesOrderItemsRefs = false,
                 invoicesRefs = false,
               }) {
@@ -16130,21 +15876,6 @@ class $$SalesOrdersTableTableManager
                                     referencedColumn:
                                         $$SalesOrdersTableReferences
                                             ._partyIdTable(db)
-                                            .id,
-                                  )
-                                  as T;
-                        }
-                        if (warehouseId) {
-                          state =
-                              state.withJoin(
-                                    currentTable: table,
-                                    currentColumn: table.warehouseId,
-                                    referencedTable:
-                                        $$SalesOrdersTableReferences
-                                            ._warehouseIdTable(db),
-                                    referencedColumn:
-                                        $$SalesOrdersTableReferences
-                                            ._warehouseIdTable(db)
                                             .id,
                                   )
                                   as T;
@@ -16219,7 +15950,6 @@ typedef $$SalesOrdersTableProcessedTableManager =
       PrefetchHooks Function({
         bool orgId,
         bool partyId,
-        bool warehouseId,
         bool salesOrderItemsRefs,
         bool invoicesRefs,
       })

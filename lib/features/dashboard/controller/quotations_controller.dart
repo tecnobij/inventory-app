@@ -1,5 +1,6 @@
 // lib/features/quotations/controller/quotations_controller.dart
 import 'dart:async';
+import 'package:bhago/features/dashboard/presentation/pages/quotation/quotation_detail_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart' as drift;
 
@@ -123,6 +124,65 @@ class QuotationsController extends ChangeNotifier {
           }).toList();
         });
   }
+Future<QuoteDetailVM> fetchQuoteDetails(int quoteId) async {
+  // Implement based on your database structure
+  // Sample implementation:
+
+final query = db.select(db.quotations);
+query.where((q) => q.id.equals(quoteId));
+final quote = await query.getSingle();
+
+
+
+  final party = await (db.select(db.parties)
+    ..where((p) => p.id.equals(quote.partyId)))
+    .getSingle();
+    
+  final items = await (db.select(db.quotationItems).join([
+    drift.innerJoin(db.products, db.products.id.equalsExp(db.quotationItems.productId))
+  ])..where(db.quotationItems.quotationId.equals(quoteId)))
+    .map((row) {
+      final item = row.readTable(db.quotationItems);
+      final product = row.readTable(db.products);
+      return QuoteItemVM(
+        id: item.id,
+        productName: product.name,
+        qty: item.qty,
+        unitPriceMinor: item.unitPriceMinor,
+      //  gstPct: item,
+      );
+    }).get();
+    
+  return QuoteDetailVM(
+    id: quote.id,
+    docNo: 'QT${quote.id.toString().padLeft(5, '0')}',
+    partyName: party.name,
+    partyAddress: party.address,
+    quoteDate: quote.quoteDate!,
+    validTill: quote.validTill!,
+    createdAt: quote.createdAt!,
+    status: quote.status!,
+    subtotalMinor: quote.subtotalMinor!,
+    taxMinor: quote.taxMinor!,
+    totalMinor: quote.totalMinor!,
+    items: items,
+  );
+}
+
+Future<int> convertQuoteToSalesOrder(int quoteId) async {
+  // Implementation depends on your sales order structure
+  // Return the new sales order ID
+  return 0; // Placeholder
+}
+
+Future<void> updateQuoteStatus(int quoteId, QuoteStatus status) async {
+  await (db.update(db.quotations)
+    ..where((q) => q.id.equals(quoteId)))
+    .write(QuotationsCompanion(
+      status: drift.Value(status),
+      updatedAt: drift.Value(DateTime.now()),
+    ));
+}
 
   Future<List<PartyLite>> fetchParties() async {
     final orgId = settings.orgId;

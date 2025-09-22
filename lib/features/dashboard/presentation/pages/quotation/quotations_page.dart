@@ -1,6 +1,7 @@
 // lib/features/quotations/presentation/quotations_page.dart
 import 'dart:async';
 import 'package:bhago/features/dashboard/controller/quotations_controller.dart';
+import 'package:bhago/features/dashboard/presentation/pages/quotation/quotation_detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -238,15 +239,20 @@ class _TableWide extends StatelessWidget {
               cell(_d(r.quoteDate), flex: 2),
               cell(_d(r.validTill), flex: 2),
               Expanded(flex: 2, child: _StatusPill(status: r.status)),
-              cell('₹${_comma(r.totalMinor)}', flex: 2),
+              cell('₹${_comma((r.totalMinor/100).toInt())}', flex: 2),
               Expanded(
                 flex: 2,
                 child: Row(children: [
-                  IconButton(
-                    tooltip: 'View',
-                    onPressed: () => _snack(context, 'View ${r.docNo}'),
-                    icon: const Icon(Icons.remove_red_eye_outlined),
-                  ),
+                 IconButton(
+  tooltip: 'View',
+  onPressed: () => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => QuotationDetailsPage(quoteId: r.id),
+    ),
+  ),
+  icon: const Icon(Icons.remove_red_eye_outlined),
+),
+
                 ]),
               ),
             ],
@@ -281,7 +287,7 @@ class _CardsNarrow extends StatelessWidget {
               children: [
                 Row(children: [
                   Expanded(child: Text(r.docNo, style: Theme.of(context).textTheme.titleMedium)),
-                  Text('₹${_comma(r.totalMinor)}'),
+                  Text('₹${_comma((r.totalMinor/100).toInt())}'),
                 ]),
                 const SizedBox(height: 6),
                 Text(r.partyName),
@@ -302,10 +308,15 @@ class _CardsNarrow extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
-                    tooltip: 'View',
-                    onPressed: () => _snack(context, 'View ${r.docNo}'),
-                    icon: const Icon(Icons.remove_red_eye_outlined),
-                  ),
+  tooltip: 'View',
+  onPressed: () => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => QuotationDetailsPage(quoteId: r.id),
+    ),
+  ),
+  icon: const Icon(Icons.remove_red_eye_outlined),
+),
+
                 )
               ],
             ),
