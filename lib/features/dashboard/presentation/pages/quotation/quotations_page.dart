@@ -642,7 +642,10 @@ class _LinesEditor extends StatelessWidget {
             child: TextFormField(
               initialValue: l.qty?.toString(),
               keyboardType: TextInputType.number,
-              onChanged: (v) => l.qty = int.tryParse(v),
+              onChanged: (v) {
+      l.qty = int.tryParse(v);
+      onChanged(); // 👈 trigger rebuild
+    },
               decoration: InputDecoration(
                 hintText: 'Qty',
                 filled: true,
@@ -659,7 +662,10 @@ class _LinesEditor extends StatelessWidget {
             child: TextFormField(
               initialValue: l.unitPriceRupees?.toString(),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              onChanged: (v) => l.unitPriceRupees = num.tryParse(v),
+            onChanged: (v) {
+  l.unitPriceRupees = num.tryParse(v);
+  onChanged();
+},
               decoration: InputDecoration(
                 hintText: '0.00',
                 filled: true,
@@ -676,7 +682,11 @@ class _LinesEditor extends StatelessWidget {
             child: TextFormField(
               initialValue: l.gstPct?.toString(),
               keyboardType: TextInputType.number,
-              onChanged: (v) => l.gstPct = int.tryParse(v),
+            // GST
+onChanged: (v) {
+  l.gstPct = int.tryParse(v);
+  onChanged();
+},
               decoration: InputDecoration(
                 hintText: 'GST%',
                 filled: true,

@@ -35,7 +35,7 @@ class _QuotationDetailsScaffoldState extends State<_QuotationDetailsScaffold> {
   QuoteDetailVM? _quote;
   bool _loading = true;
   String? _error;
-
+String tax="0";
   @override
   void initState() {
     super.initState();
@@ -129,7 +129,7 @@ class _QuotationDetailsScaffoldState extends State<_QuotationDetailsScaffold> {
         children: [
           _QuotationHeader(quote: _quote!),
           const SizedBox(height: 24),
-          _LineItemsSection(items: _quote!.items),
+          _LineItemsSection(items: _quote!.items, quote: _quote!,),
           const SizedBox(height: 24),
           _TotalsSection(quote: _quote!),
           const SizedBox(height: 24),
@@ -378,15 +378,15 @@ class _QuotationHeader extends StatelessWidget {
 
 class _LineItemsSection extends StatelessWidget {
   final List<QuoteItemVM> items;
+final  QuoteDetailVM quote;
+   _LineItemsSection({required this.items, required this.quote});
   
-  const _LineItemsSection({required this.items});
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isMobile = MediaQuery.of(context).size.width < 700;
-    
+  
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
@@ -407,15 +407,17 @@ class _LineItemsSection extends StatelessWidget {
           ),
           const Divider(height: 1),
           if (isMobile) 
-            _itemsMobile()
+            _itemsMobile(quote)
           else 
-            _itemsDesktop(),
+            _itemsDesktop(quote),
         ],
       ),
     );
   }
 
-  Widget _itemsDesktop() {
+  Widget _itemsDesktop(   QuoteDetailVM quote) {
+    var tax =(( quote.taxMinor/100).toInt()/ (quote.subtotalMinor/100).toInt())*100;
+
     return Column(
       children: [
         Container(
@@ -428,7 +430,7 @@ class _LineItemsSection extends StatelessWidget {
               Expanded(flex: 4, child: Text('Product', style: TextStyle(fontWeight: FontWeight.bold))),
               Expanded(flex: 2, child: Text('Qty', style: TextStyle(fontWeight: FontWeight.bold))),
               Expanded(flex: 2, child: Text('Unit Price', style: TextStyle(fontWeight: FontWeight.bold))),
-           //   Expanded(flex: 2, child: Text('GST%', style: TextStyle(fontWeight: FontWeight.bold))),
+             Expanded(flex: 2, child: Text('GST%', style: TextStyle(fontWeight: FontWeight.bold))),
             //  Expanded(flex: 2, child: Text('Amount', style: TextStyle(fontWeight: FontWeight.bold))),
             ],
           ),
@@ -453,7 +455,14 @@ class _LineItemsSection extends StatelessWidget {
                   flex: 2,
                   child: Text('₹${_comma((items[i].unitPriceMinor/100).toInt())}'),
                 ),
-               
+                Expanded(
+                  flex: 2,
+                  child: Expanded(
+  flex: 2,
+  child: Text('${tax.round()}%'),
+),
+
+                ),
               ],
             ),
           ),
@@ -464,7 +473,9 @@ class _LineItemsSection extends StatelessWidget {
     );
   }
 
-  Widget _itemsMobile() {
+  Widget _itemsMobile( QuoteDetailVM quote) {
+      var tax =(( quote.taxMinor/100).toInt()/ (quote.subtotalMinor/100).toInt())*100;
+
     return Column(
       children: [
         for (int i = 0; i < items.length; i++) ...[
@@ -486,6 +497,7 @@ class _LineItemsSection extends StatelessWidget {
                   children: [
                     Text('Qty: ${items[i].qty}'),
                     Text('₹${_comma((items[i].unitPriceMinor/100).toInt())} each'),
+                      Text('GST  ${tax.round()}%'),
                   ],
                 ),
                 const SizedBox(height: 8),

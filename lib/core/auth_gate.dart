@@ -17,9 +17,18 @@ class AuthGate extends StatelessWidget {
     final settings = context.watch<SettingsProvider>();
 
     // Wait until both providers finished initial load
-    if (!settings.loaded) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+   if (!settings.loaded) {
+  return FutureBuilder(
+    future: Future.delayed(const Duration(seconds: 3)),
+    builder: (ctx, snap) {
+      if (snap.connectionState == ConnectionState.waiting) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      // fallback: treat as not onboarded
+      return const SettingPage();
+    },
+  );
+}
 
     if (!auth.loggedIn) {
       return const WelcomeAuthPage();
