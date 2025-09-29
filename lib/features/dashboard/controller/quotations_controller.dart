@@ -69,6 +69,11 @@ class QuotationsController extends ChangeNotifier {
 
   String _q = '';
   String get q => _q;
+
+
+
+
+
   void setQuery(String v) {
     _q = v.trim().toLowerCase();
     notifyListeners();

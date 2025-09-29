@@ -11,26 +11,35 @@ import 'features/dashboard/controller/actions_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  final db = AppDatabase();
+  await db.customSelect('SELECT 1').get();
   runApp(
     MultiProvider(
       providers: [
         // ⬅️ Single DB instance for the whole app
-        Provider<AppDatabase>(
-          create: (_) => AppDatabase(),
-          dispose: (_, db) => db.close(),
-        ),
+        // Provider<AppDatabase>(
+     
+        //   create: (_) => AppDatabase(),
+        //   dispose: (_, db) => db.close(),
+        // ),
 
         // Settings uses the SAME DB instance
-      
+     
+
         // Controllers (no duplicate ThemeController)
         ChangeNotifierProvider(create: (_) => ActionsController()..load()),
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(create: (_) => AuthProvider()..load()),
-
-  ChangeNotifierProvider<SettingsProvider>(
-          create: (ctx) => SettingsProvider(ctx.read<AppDatabase>())..load(),
+   Provider<AppDatabase>.value(value: db),
+        ChangeNotifierProvider<SettingsProvider>(
+          lazy: false,
+          create: (ctx) {
+            final provider = SettingsProvider(ctx.read<AppDatabase>());
+            provider.load();
+            return provider;
+          },
         ),
+
         // SalesDispatchController reuses SAME DB + Settings
         ChangeNotifierProvider<SalesDispatchController>(
           create: (ctx) => SalesDispatchController(

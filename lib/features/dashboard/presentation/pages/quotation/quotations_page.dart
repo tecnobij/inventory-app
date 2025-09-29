@@ -383,7 +383,7 @@ class _CreateQuoteTabState extends State<_CreateQuoteTab> {
   DateTime _validTill = DateTime.now().add(const Duration(days: 30));
 
   // dynamic lines
-  final List<_LineModel> _lines = [ _LineModel() ];
+  final List<LineModel> _lines = [ LineModel() ];
 
   @override
   Widget build(BuildContext context) {
@@ -546,7 +546,7 @@ class _CreateQuoteTabState extends State<_CreateQuoteTab> {
 /* -------------------- lines editor (Create form) -------------------- */
 class _LinesEditor extends StatelessWidget {
   const _LinesEditor({required this.lines, required this.products, required this.onChanged});
-  final List<_LineModel> lines;
+  final List<LineModel> lines;
   final List<ProductLite> products;
   final VoidCallback onChanged;
 
@@ -586,7 +586,7 @@ class _LinesEditor extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed: () {
-                lines.add(_LineModel());
+                lines.add(LineModel());
                 onChanged();
               },
               icon: const Icon(Icons.add),
@@ -724,7 +724,7 @@ onChanged: (v) {
     );
   }
 
-  String _lineTotalRupees(_LineModel l) {
+  String _lineTotalRupees(LineModel l) {
     if (!l.isValid) return '₹0.00';
     final sub = (l.unitPriceRupees! * l.qty!).toDouble();
     final tax = sub * ((l.gstPct ?? 0) / 100.0);
@@ -735,7 +735,7 @@ onChanged: (v) {
 
 class _TotalsBox extends StatelessWidget {
   const _TotalsBox({required this.lines});
-  final List<_LineModel> lines;
+  final List<LineModel> lines;
 
   @override
   Widget build(BuildContext context) {
@@ -781,13 +781,19 @@ class _TotalsBox extends StatelessWidget {
   );
 }
 
-class _LineModel {
+class LineModel {
   int? productId;
   int? qty;
   num? unitPriceRupees;
   int? gstPct;
 
-  bool get isValid => productId != null && (qty ?? 0) > 0 && (unitPriceRupees ?? 0) > 0;
+  // 👇 Controllers for fields
+  final qtyCtrl = TextEditingController();
+  final unitPriceCtrl = TextEditingController();
+  final gstCtrl = TextEditingController();
+
+  bool get isValid =>
+      productId != null && qty != null && unitPriceRupees != null;
 }
 
 /* ----------------------------- helpers ----------------------------- */

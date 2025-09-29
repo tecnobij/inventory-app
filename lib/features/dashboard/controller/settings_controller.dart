@@ -86,27 +86,26 @@ class SettingsProvider extends ChangeNotifier {
 
   List<WarehouseVM> warehouses = [];
 
-  Future<void> load() async {
+Future<void> load() async {
+    print("🟢 Entering load()");
+  try {
+     await Future.delayed(const Duration(milliseconds: 100));
     final org = await (db.select(db.organizations)
           ..orderBy([(t) => drift.OrderingTerm.desc(t.id)])
           ..limit(1))
-        .getSingleOrNull();
-
+      .getSingleOrNull();
+ print("📂 Query finished, org = $org");
     if (org == null) {
       onboarded = false;
       loaded = true;
+      print("🔔 SettingsProvider: no org found");
       notifyListeners();
       return;
     }
 
     orgId = org.id;
     orgName = org.name;
-    ownerName = org.ownerName ?? '';
-    email = org.email ?? '';
-    phone = org.phone ?? '';
-    gst = org.gstin ?? '';
-    address = org.address ?? '';
-    logoPath = org.logoPath;
+    // ... other assignments
 
     await _loadAppSettings();
     await _loadNumbering();
@@ -114,8 +113,14 @@ class SettingsProvider extends ChangeNotifier {
 
     onboarded = true;
     loaded = true;
+    print("🔔 SettingsProvider loaded = $loaded, onboarded = $onboarded");
     notifyListeners();
+  } catch (e, st) {
+    print("❌ SettingsProvider.load() failed: $e");
+    print(st);
   }
+}
+
 
   Future<void> setOnboarded(bool v) async {
     onboarded = v;

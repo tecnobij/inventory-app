@@ -13,31 +13,41 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final settings = context.watch<SettingsProvider>();
+    return Selector2<AuthProvider, SettingsProvider, _AuthState>(
+      selector: (_, auth, settings) => _AuthState(
+        loggedIn: auth.loggedIn,
+        loaded: settings.loaded,
+        onboarded: settings.onboarded,
+      ),
+      builder: (context, state, _) {
+        if (!state.loaded) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    // Wait until both providers finished initial load
-   if (!settings.loaded) {
-  return FutureBuilder(
-    future: Future.delayed(const Duration(seconds: 3)),
-    builder: (ctx, snap) {
-      if (snap.connectionState == ConnectionState.waiting) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
-      }
-      // fallback: treat as not onboarded
-      return const SettingPage();
-    },
-  );
+        if (!state.loggedIn) {
+          return const WelcomeAuthPage();
+        }
+
+        if (!state.onboarded) {
+          return const SettingPage();
+        }
+
+        return const DashboardView();
+      },
+    );
+  }
 }
 
-    if (!auth.loggedIn) {
-      return const WelcomeAuthPage();
-    }
+class _AuthState {
+  final bool loggedIn;
+  final bool loaded;
+  final bool onboarded;
 
-    // Authenticated → choose between onboarding/settings vs dashboard
-    if (!settings.onboarded) {
-      return const SettingPage();
-    }
-    return const DashboardView();
-  }
+  _AuthState({
+    required this.loggedIn,
+    required this.loaded,
+    required this.onboarded,
+  });
 }
