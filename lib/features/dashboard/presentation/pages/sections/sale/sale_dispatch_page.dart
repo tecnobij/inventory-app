@@ -866,19 +866,37 @@ class _LineItemsSection extends StatelessWidget {
             const SizedBox(width: 8),
 
             // GST % (read-only)
-            Expanded(
-              flex: 2,
-              child: Container(
-                height: 44,
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text('${r.gstPct ?? prod?.gstPercent ?? 0}%'),
-              ),
-            ),
+            // Expanded(
+            //   flex: 2,
+            //   child: Container(
+            //     height: 44,
+            //     alignment: Alignment.centerLeft,
+            //     padding: const EdgeInsets.symmetric(horizontal: 12),
+            //     decoration: BoxDecoration(
+            //       color: Colors.grey.shade100,
+            //       borderRadius: BorderRadius.circular(8),
+            //     ),
+            //     child: Text('${r.gstPct ?? prod?.gstPercent ?? 0}%'),
+            //   ),
+            // ),
+            // GST % (editable)
+// GST % (editable)
+Expanded(
+  flex: 2,
+  child: TextFormField(
+    key: ValueKey("gst-${r.productId}"), // forces rebuild when product changes
+    initialValue: r.gstPct?.toString(),
+    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    decoration: _box('GST %'),
+    onChanged: (v) {
+      r.gstPct = int.tryParse(v.trim());
+      onChanged();
+    },
+    validator: (_) => (r.gstPct == null || r.gstPct! < 0) ? 'Req' : null,
+  ),
+),
+
+
             const SizedBox(width: 8),
 
             // Line total

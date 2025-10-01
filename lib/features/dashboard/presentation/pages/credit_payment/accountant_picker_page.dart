@@ -8,7 +8,10 @@ import 'package:bhago/features/dashboard/controller/credit_payments_controller.d
 
 
 class AccountantPickerPage extends StatefulWidget {
-  const AccountantPickerPage({super.key});
+   final bool selectMode; // 👈 add this
+  const AccountantPickerPage({super.key, this.selectMode = false});
+
+
   @override
   State<AccountantPickerPage> createState() => _AccountantPickerPageState();
 }
@@ -103,12 +106,16 @@ stream: _ctrl.watchRecordedTotalsForAccountant(orgId, p.id),
       final totals = sumSnap.data ?? const AccountantTotalsVM(partyId: -1, inSum: 0, outSum: 0);
 
       return InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => CreditPaymentsPage(accountant: p)),
-          );
-        },
+       onTap: () {
+  if (widget.selectMode) {
+    Navigator.pop(context, p); // 👈 return selected accountant
+  } else {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => CreditPaymentsPage(accountant: p)),
+    );
+  }
+},
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(

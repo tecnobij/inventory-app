@@ -443,7 +443,7 @@ class _CreateQuoteTabState extends State<_CreateQuoteTab> {
                   const SizedBox(height: 16),
 
                   // Totals
-                  _TotalsBox(lines: _lines),
+                  TotalsBox(lines: _lines,),
 
                   const SizedBox(height: 16),
 
@@ -579,7 +579,15 @@ class _LinesEditor extends StatelessWidget {
           const Divider(height: 1),
 
           // rows
-          for (int i = 0; i < lines.length; i++) _row(context, i, products),
+        //  for (int i = 0; i < lines.length; i++) _row(context, i, products),
+for (int i = 0; i < lines.length; i++)
+  ChangeNotifierProvider.value(
+    value: lines[i],
+    child: _Row(products: products, onRemove: () {
+      lines.removeAt(i);
+      onChanged();
+    }),
+  ),
 
           // add
           Align(
@@ -597,157 +605,48 @@ class _LinesEditor extends StatelessWidget {
       ),
     );
   }
-
-  Widget _row(BuildContext context, int idx, List<ProductLite> products) {
-    final l = lines[idx];
-    final scheme = Theme.of(context).colorScheme;
-
-    int? productGst(int pid) => products.firstWhere((p) => p.id == pid).gstPct;
-    num? productDefaultPriceR(int pid) {
-      final p = products.firstWhere((e) => e.id == pid);
-      final m = p.defaultPriceMinor;
-      return m == null ? null : m / 100.0;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          // product
-          Expanded(
-            flex: 4,
-            child: DropdownButtonFormField<int>(
-              value: l.productId,
-              items: products.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))).toList(),
-              onChanged: (v) {
-                l.productId = v;
-                // auto-fill gst and price if vacant
-                l.gstPct ??= (v == null ? null : productGst(v));
-                l.unitPriceRupees ??= (v == null ? null : productDefaultPriceR(v));
-                onChanged();
-              },
-              decoration: InputDecoration(
-                hintText: 'Select product',
-                filled: true,
-                fillColor: scheme.surfaceVariant.withOpacity(.45),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // qty
-          Expanded(
-            flex: 2,
-            child: TextFormField(
-              initialValue: l.qty?.toString(),
-              keyboardType: TextInputType.number,
-              onChanged: (v) {
-      l.qty = int.tryParse(v);
-      onChanged(); // 👈 trigger rebuild
-    },
-              decoration: InputDecoration(
-                hintText: 'Qty',
-                filled: true,
-                fillColor: scheme.surfaceVariant.withOpacity(.45),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // unit price (₹)
-          Expanded(
-            flex: 3,
-            child: TextFormField(
-              initialValue: l.unitPriceRupees?.toString(),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: (v) {
-  l.unitPriceRupees = num.tryParse(v);
-  onChanged();
-},
-              decoration: InputDecoration(
-                hintText: '0.00',
-                filled: true,
-                fillColor: scheme.surfaceVariant.withOpacity(.45),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // gst
-          Expanded(
-            flex: 2,
-            child: TextFormField(
-              initialValue: l.gstPct?.toString(),
-              keyboardType: TextInputType.number,
-            // GST
-onChanged: (v) {
-  l.gstPct = int.tryParse(v);
-  onChanged();
-},
-              decoration: InputDecoration(
-                hintText: 'GST%',
-                filled: true,
-                fillColor: scheme.surfaceVariant.withOpacity(.45),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // line total
-          Expanded(
-            flex: 2,
-            child: Text(
-              _lineTotalRupees(l),
-              textAlign: TextAlign.left,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ),
-
-          // remove
-          SizedBox(
-            width: 44,
-            child: IconButton(
-              tooltip: 'Remove',
-              onPressed: () {
-                lines.removeAt(idx);
-                onChanged();
-              },
-              icon: const Icon(Icons.delete_outline),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _lineTotalRupees(LineModel l) {
-    if (!l.isValid) return '₹0.00';
-    final sub = (l.unitPriceRupees! * l.qty!).toDouble();
-    final tax = sub * ((l.gstPct ?? 0) / 100.0);
-    final total = sub + tax;
-    return '₹${total.toStringAsFixed(2)}';
-  }
 }
 
-class _TotalsBox extends StatelessWidget {
-  const _TotalsBox({required this.lines});
+class TotalsBox extends StatelessWidget {
+  const TotalsBox({required this.lines, super.key});
   final List<LineModel> lines;
 
   @override
   Widget build(BuildContext context) {
-    num subtotal = 0, tax = 0;
-    for (final l in lines.where((e) => e.isValid)) {
-      final sub = l.unitPriceRupees! * l.qty!;
-      final t = sub * ((l.gstPct ?? 0) / 100.0);
-      subtotal += sub;
-      tax += t;
-    }
-    final total = subtotal + tax;
+    return ListenableBuilder(
+      listenable: Listenable.merge(lines), // listens to all LineModels
+      builder: (_, __) {
+        num subtotal = 0, tax = 0;
+        for (final l in lines.where((e) => e.isValid)) {
+          final sub = (l.unitPriceRupees ?? 0) * (l.qty ?? 0);
+          final t = sub * ((l.gstPct ?? 0) / 100.0);
+          subtotal += sub;
+          tax += t;
+        }
+        final total = subtotal + tax;
 
+        return _TotalsBoxUI(
+          subtotal: subtotal,
+          tax: tax,
+          total: total,
+        );
+      },
+    );
+  }
+}
+
+
+class _TotalsBoxUI extends StatelessWidget {
+  const _TotalsBoxUI({
+    required this.subtotal,
+    required this.tax,
+    required this.total,
+  });
+
+  final num subtotal, tax, total;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -768,32 +667,503 @@ class _TotalsBox extends StatelessWidget {
   }
 
   Widget _row(String k, String v) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [Text(k), Text(v)],
-  );
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [Text(k), Text(v)],
+      );
 
   Widget _rowBold(String k, String v) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(k, style: const TextStyle(fontWeight: FontWeight.w800)),
-      Text(v, style: const TextStyle(fontWeight: FontWeight.w800)),
-    ],
-  );
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(k, style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(v, style: const TextStyle(fontWeight: FontWeight.w800)),
+        ],
+      );
 }
 
-class LineModel {
+Future<ProductLite?> _showProductSearch(
+  BuildContext context,
+  List<ProductLite> products,
+) async {
+  TextEditingController searchCtrl = TextEditingController();
+  return showDialog<ProductLite>(
+    context: context,
+    builder: (context) {
+      List<ProductLite> filtered = List.from(products);
+
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: TextField(
+              controller: searchCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: "Search product...",
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (q) {
+                setState(() {
+                  filtered = products
+                      .where((p) =>
+                          p.name.toLowerCase().contains(q.toLowerCase()))
+                      .toList();
+                });
+              },
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 300,
+              child: ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (context, i) {
+                  final p = filtered[i];
+                  return ListTile(
+                    title: Text(p.name),
+                    onTap: () => Navigator.pop(context, p),
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+class ProductSearchField extends StatefulWidget {
+  final List<ProductLite> products;
+  final int? selectedId;
+  final ValueChanged<int?> onChanged;
+
+  const ProductSearchField({
+    required this.products,
+    required this.selectedId,
+    required this.onChanged,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  State<ProductSearchField> createState() => _ProductSearchFieldState();
+}
+
+class _ProductSearchFieldState extends State<ProductSearchField> {
+  final controller = TextEditingController();
+  final focusNode = FocusNode();
+  late OverlayEntry _overlayEntry;
+  List<ProductLite> suggestionList = [];
+  bool showAll = false;
+
+  @override
+  void initState() {
+    super.initState();
+    controller.text = widget.products
+        .firstWhere((p) => p.id == widget.selectedId, orElse: () => ProductLite(id: -1, name: '', gstPct: 0))
+        .name;
+    suggestionList = widget.products;
+    focusNode.addListener(() {
+      if (focusNode.hasFocus) {
+        setState(() {
+          showAll = true;
+          suggestionList = widget.products;
+        });
+        _showOverlay();
+      } else {
+        _removeOverlay();
+      }
+    });
+  }
+
+  void _showOverlay() {
+    _overlayEntry = _buildOverlay();
+    Overlay.of(context)!.insert(_overlayEntry);
+  }
+
+  void _removeOverlay() {
+    _overlayEntry.remove();
+  }
+
+  OverlayEntry _buildOverlay() {
+    RenderBox box = context.findRenderObject() as RenderBox;
+    var offset = box.localToGlobal(Offset.zero);
+    return OverlayEntry(
+      builder: (context) => Positioned(
+        left: offset.dx,
+        top: offset.dy + box.size.height,
+        width: box.size.width,
+        child: Material(
+          elevation: 2,
+          child: SizedBox(
+            height: 200,
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: suggestionList.map((product) => ListTile(
+                title: Text(product.name),
+                onTap: () {
+                  widget.onChanged(product.id);
+                  controller.text = product.name;
+                  focusNode.unfocus();
+                },
+              )).toList(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      focusNode: focusNode,
+      decoration: InputDecoration(
+        labelText: 'Product',
+        suffixIcon: IconButton(
+          icon: Icon(Icons.search),
+          onPressed: () {
+            focusNode.requestFocus();
+            setState(() {
+              showAll = true;
+              suggestionList = widget.products;
+            });
+          },
+        ),
+        filled: true,
+        fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(.45),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      onChanged: (val) {
+        setState(() {
+          showAll = false;
+          suggestionList = widget.products.where(
+            (p) => p.name.toLowerCase().contains(val.toLowerCase())
+          ).toList();
+          _removeOverlay();
+          _showOverlay();
+        });
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    focusNode.dispose();
+    super.dispose();
+  }
+}
+
+class _Row extends StatelessWidget {
+  final List<ProductLite> products;
+  final VoidCallback onRemove;
+
+  const _Row({required this.products, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    final line = context.watch<LineModel>();
+    final scheme = Theme.of(context).colorScheme;
+
+    int? productGst(int pid) => products.firstWhere((p) => p.id == pid).gstPct;
+    num? productDefaultPriceR(int pid) {
+      final p = products.firstWhere((e) => e.id == pid);
+      final m = p.defaultPriceMinor;
+      return m == null ? null : m / 100.0;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mobile = constraints.maxWidth < 600;
+
+        if (mobile) {
+          // 📱 MOBILE: stacked card layout
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // product
+                  DropdownButtonFormField<int>(
+                    value: line.productId,
+                    items: products
+                        .map((p) =>
+                            DropdownMenuItem(value: p.id, child: Text(p.name)))
+                        .toList(),
+                    onChanged: (v) {
+                      line.productId = v;
+                      line.gstPct ??= v == null ? null : productGst(v);
+                      line.unitPriceRupees ??=
+                          v == null ? null : productDefaultPriceR(v);
+                      line.notifyListeners();
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Product',
+                      filled: true,
+                      fillColor: scheme.surfaceVariant.withOpacity(.45),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // qty + unit price
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: line.qty?.toString(),
+                          keyboardType: TextInputType.number,
+                          onChanged: (v) => line.setQty(int.tryParse(v)),
+                          decoration: InputDecoration(
+                            labelText: 'Qty',
+                            filled: true,
+                            fillColor: scheme.surfaceVariant.withOpacity(.45),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Consumer<LineModel>(
+                          builder: (_, line, __) => TextFormField(
+                            key: ValueKey("unitPrice-${line.productId}"),
+                            initialValue: line.unitPriceRupees?.toString(),
+                            keyboardType:
+                                const TextInputType.numberWithOptions(
+                                    decimal: true),
+                            onChanged: (v) =>
+                                line.setUnitPrice(num.tryParse(v)),
+                            decoration: InputDecoration(
+                              labelText: 'Unit Price (₹)',
+                              filled: true,
+                              fillColor: scheme.surfaceVariant.withOpacity(.45),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // gst + total
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Consumer<LineModel>(
+                          builder: (_, line, __) => TextFormField(
+                            key: ValueKey("gst-${line.productId}"),
+                            initialValue: line.gstPct?.toString(),
+                            keyboardType:
+                                const TextInputType.numberWithOptions(
+                                    decimal: true),
+                            onChanged: (v) =>
+                                line.setGst(int.tryParse(v)),
+                            decoration: InputDecoration(
+                              labelText: 'GST %',
+                              filled: true,
+                              fillColor: scheme.surfaceVariant.withOpacity(.45),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Consumer<LineModel>(
+                          builder: (_, l, __) {
+                            if (!l.isValid) return const Text('₹0.00');
+                            final sub =
+                                (l.unitPriceRupees! * l.qty!).toDouble();
+                            final tax =
+                                sub * ((l.gstPct ?? 0) / 100.0);
+                            final total = sub + tax;
+                            return Text(
+                              'Total: ₹${total.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // remove button
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      tooltip: 'Remove',
+                      onPressed: onRemove,
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // 💻 DESKTOP/TABLET: same as your wide row
+        return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          // product
+          Expanded(
+            flex: 4,
+            child: DropdownButtonFormField<int>(
+              value: line.productId,
+              items: products
+                  .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
+                  .toList(),
+              onChanged: (v) {
+                line.productId = v;
+                line.gstPct ??= v == null ? null : productGst(v);
+                line.unitPriceRupees ??= v == null ? null : productDefaultPriceR(v);
+                line.notifyListeners();
+              },
+              decoration: InputDecoration(
+                hintText: 'product',
+                filled: true,
+                fillColor: scheme.surfaceVariant.withOpacity(.45),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // qty
+          Expanded(
+            flex: 2,
+            child: TextFormField(
+              initialValue: line.qty?.toString(),
+              keyboardType: TextInputType.number,
+              onChanged: (v) => line.setQty(int.tryParse(v)),
+              decoration: InputDecoration(
+                hintText: 'Qty',
+                filled: true,
+                fillColor: scheme.surfaceVariant.withOpacity(.45),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // unit price
+   Expanded(
+  flex: 3,
+  child: Consumer<LineModel>(
+    builder: (_, line, __) => TextFormField(
+      key: ValueKey("unitPrice-${line.productId}"), // forces rebuild on product change
+      initialValue: line.unitPriceRupees?.toString(),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      onChanged: (v) => line.setUnitPrice(num.tryParse(v)),
+      decoration: InputDecoration(
+        hintText: '0.00',
+        filled: true,
+        fillColor: scheme.surfaceVariant.withOpacity(.45),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    ),
+  ),
+),
+
+
+          const SizedBox(width: 8),
+
+          // gst
+        Expanded(
+  flex: 2,
+  child: Consumer<LineModel>(
+    builder: (_, line, __) => TextFormField(
+      key: ValueKey("gst-${line.productId}"), // force reset when product changes
+      initialValue: line.gstPct?.toString(),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      onChanged: (v) => line.setGst(int.tryParse(v)),
+      decoration: InputDecoration(
+        hintText: 'GST%',
+        filled: true,
+        fillColor: scheme.surfaceVariant.withOpacity(.45),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    ),
+  ),
+)
+,
+
+          const SizedBox(width: 8),
+
+          // line total (⚡️ only this widget rebuilds!)
+          Expanded(
+            flex: 2,
+            child: Consumer<LineModel>(
+              builder: (_, l, __) {
+                if (!l.isValid) return const Text('₹0.00');
+                final sub = (l.unitPriceRupees! * l.qty!).toDouble();
+                final tax = sub * ((l.gstPct ?? 0) / 100.0);
+                final total = sub + tax;
+                return Text(
+                  '₹${total.toStringAsFixed(2)}',
+                  textAlign: TextAlign.left,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                );
+              },
+            ),
+          ),
+
+          // remove
+          SizedBox(
+            width: 44,
+            child: IconButton(
+              tooltip: 'Remove',
+              onPressed: onRemove,
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ),
+        ],
+      ),
+    );
+      }
+    );
+  }
+}
+
+class LineModel extends ChangeNotifier {
   int? productId;
   int? qty;
   num? unitPriceRupees;
   int? gstPct;
 
-  // 👇 Controllers for fields
-  final qtyCtrl = TextEditingController();
-  final unitPriceCtrl = TextEditingController();
-  final gstCtrl = TextEditingController();
+  bool get isValid => productId != null && qty != null && unitPriceRupees != null;
 
-  bool get isValid =>
-      productId != null && qty != null && unitPriceRupees != null;
+  void setQty(int? value) {
+    qty = value;
+    notifyListeners();
+  }
+
+  void setUnitPrice(num? value) {
+    unitPriceRupees = value;
+    notifyListeners();
+  }
+
+  void setGst(int? value) {
+    gstPct = value;
+    notifyListeners();
+  }
 }
 
 /* ----------------------------- helpers ----------------------------- */

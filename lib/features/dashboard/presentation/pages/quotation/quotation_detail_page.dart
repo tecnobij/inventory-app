@@ -32,10 +32,11 @@ class _QuotationDetailsScaffold extends StatefulWidget {
 }
 
 class _QuotationDetailsScaffoldState extends State<_QuotationDetailsScaffold> {
+  
   QuoteDetailVM? _quote;
   bool _loading = true;
   String? _error;
-String tax="0";
+  String tax="0";
   @override
   void initState() {
     super.initState();
@@ -62,30 +63,10 @@ String tax="0";
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    
     return Scaffold(
       appBar: AppBar(
         title: Text(_quote?.docNo ?? 'Quotation Details'),
-        backgroundColor: scheme.surface,
-        actions: [
-          if (_quote != null) ...[
-            IconButton(
-              tooltip: 'Share',
-              onPressed: () => _shareQuotation(),
-              icon: const Icon(Icons.share),
-            ),
-            PopupMenuButton<String>(
-              onSelected: _onMenuSelected,
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: 'edit', child: Text('Edit Quotation')),
-                const PopupMenuItem(value: 'convert', child: Text('Convert to Sales Order')),
-                const PopupMenuItem(value: 'duplicate', child: Text('Duplicate')),
-                if (_quote!.status == QuoteStatus.open)
-                  const PopupMenuItem(value: 'close', child: Text('Mark as Closed')),
-              ],
-            ),
-          ],
-        ],
+        backgroundColor: scheme.surface,       
       ),
       body: _buildBody(),
     );
@@ -95,7 +76,6 @@ String tax="0";
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    
     if (_error != null) {
       return Center(
         child: Column(
@@ -115,13 +95,11 @@ String tax="0";
         ),
       );
     }
-    
     if (_quote == null) {
       return const Center(child: Text('Quotation not found'));
     }
 
     final isMobile = MediaQuery.of(context).size.width < 700;
-    
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
       child: Column(
@@ -163,7 +141,6 @@ String tax="0";
   void _shareQuotation() {
     _snack('Share functionality not implemented yet');
   }
-
   void _editQuotation() {
     _snack('Edit functionality not implemented yet');
   }
@@ -182,7 +159,7 @@ String tax="0";
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _performConversion();
+            
             },
             child: const Text('Convert'),
           ),
@@ -190,7 +167,6 @@ String tax="0";
       ),
     );
   }
-
   void _duplicateQuotation() {
     _snack('Duplicate functionality not implemented yet');
   }
@@ -219,15 +195,7 @@ String tax="0";
     );
   }
 
-  Future<void> _performConversion() async {
-    try {
-      final ctrl = context.read<QuotationsController>();
-      final soId = await ctrl.convertQuoteToSalesOrder(widget.quoteId);
-      _snack('Converted to Sales Order #$soId');
-    } catch (e) {
-      _snack('Error converting: $e');
-    }
-  }
+
 
   Future<void> _performClose() async {
     try {
@@ -631,21 +599,9 @@ class _ActionsSection extends StatelessWidget {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => onAction('edit'),
-                icon: const Icon(Icons.edit),
-                label: const Text('Edit'),
-              ),
-            ),
+          
             const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => onAction('duplicate'),
-                icon: const Icon(Icons.copy),
-                label: const Text('Duplicate'),
-              ),
-            ),
+           
           ],
         ),
       ],
@@ -666,17 +622,7 @@ class _ActionsSection extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        OutlinedButton.icon(
-          onPressed: () => onAction('edit'),
-          icon: const Icon(Icons.edit),
-          label: const Text('Edit'),
-        ),
-        const SizedBox(width: 12),
-        OutlinedButton.icon(
-          onPressed: () => onAction('duplicate'),
-          icon: const Icon(Icons.copy),
-          label: const Text('Duplicate'),
-        ),
+       
       ],
     );
   }
