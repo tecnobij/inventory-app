@@ -1,4 +1,7 @@
 // lib/features/quotations/presentation/quotation_details_page.dart
+import 'package:bhago/features/dashboard/controller/sales_dispatch_controller.dart';
+import 'package:bhago/features/dashboard/presentation/pages/sections/sale/sale_dispatch_page.dart';
+import 'package:bhago/features/dashboard/presentation/pages/sections/sale/so_details_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:bhago/app/data/local_database.dart';
@@ -145,28 +148,84 @@ class _QuotationDetailsScaffoldState extends State<_QuotationDetailsScaffold> {
     _snack('Edit functionality not implemented yet');
   }
 
-  void _convertToSalesOrder() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Convert to Sales Order'),
-        content: const Text('This will create a new Sales Order based on this quotation. Continue?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-            
-            },
-            child: const Text('Convert'),
-          ),
-        ],
-      ),
-    );
+void _convertToSalesOrder() async {
+  final ctrl = context.read<SalesDispatchController>();
+     final quotCtrl = context.read<QuotationsController>();
+  // Confirm first
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Convert to Sales Order'),
+      content: const Text('This will create a new Sales Order based on this quotation. Continue?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Continue'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm != true) return;
+
+  // ---- Show PaymentDialog (just like SO flow) ----
+  final choice = await showDialog<PaymentChoice>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => PaymentDialog(
+      ctrl: ctrl,
+      partyId: _quote!.partyId,       // <-- from quotation
+      orderTotalMinor:(_quote!.totalMinor/100).toInt(), // <-- quotation total
+    ),
+  );
+  if (choice == null) return;
+
+  // ---- Create Sales Order from Quotation ----
+  final soId = await quotCtrl.createSalesOrderFromQuote(
+     _quote!.id,
+ 
+  );
+
+  // ---- If cash, record payment ----
+  if (choice.mode == PaymentMode.cash) {
+    final amtMinor = (choice.cashAmountMinor ?? 0);
+    if (amtMinor > 0) {
+      final methodId = await ctrl.ensureCashMethod();
+
+      final s = context.read<SettingsProvider>();
+      final orgId = s.orgId!;
+
+      await ctrl.addPaymentForSalesOrder(
+        orgId: orgId,
+        partyId: _quote!.partyId,
+        salesOrderId: soId,
+        methodId: methodId,
+        amountMinor: amtMinor,
+        note: 'Payment at SO $soId',
+      );
+    }
   }
+
+  if (!mounted) return;
+  _snack('Quotation converted to Sales Order $soId');
+
+  // Navigate to SO details
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => ChangeNotifierProvider.value(
+        value: ctrl,
+        child: SalesOrderDetailsPage(soId: soId),
+      ),
+    ),
+  );
+}
+
+
+
   void _duplicateQuotation() {
     _snack('Duplicate functionality not implemented yet');
   }
@@ -669,6 +728,7 @@ class _StatusPill extends StatelessWidget {
 class QuoteDetailVM {
   final int id;
   final String docNo;
+   final int partyId;
   final String partyName;
   final String? partyAddress;
   final DateTime quoteDate;
@@ -680,9 +740,10 @@ class QuoteDetailVM {
   final int totalMinor;
   final List<QuoteItemVM> items;
 
-  QuoteDetailVM({
+  QuoteDetailVM( {
     required this.id,
     required this.docNo,
+  required  this.partyId,
     required this.partyName,
     this.partyAddress,
     required this.quoteDate,

@@ -586,10 +586,10 @@ class _CreateSoTabState extends State<CreateSoTab> {
                   }
 
                   // Pick payment choice
-                  final choice = await showDialog<_PaymentChoice>(
+                  final choice = await showDialog<PaymentChoice>(
                     context: context,
                     barrierDismissible: false,
-                    builder: (_) => _PaymentDialog(
+                    builder: (_) => PaymentDialog(
                       ctrl: ctrl,
                       partyId: resolvedPartyId,
                       orderTotalMinor: total,
@@ -1127,23 +1127,23 @@ String _inr(int n) {
 
 enum PaymentMode { cash, credit }
 
-class _PaymentChoice {
+class PaymentChoice {
   final PaymentMode mode;
   final int? cashAmountMinor;
-  _PaymentChoice({required this.mode, this.cashAmountMinor});
+  PaymentChoice({required this.mode, this.cashAmountMinor});
 }
 
-class _PaymentDialog extends StatefulWidget {
+class PaymentDialog extends StatefulWidget {
   final SalesDispatchController ctrl;
   final int partyId;
   final int orderTotalMinor;
-  const _PaymentDialog({required this.ctrl, required this.partyId, required this.orderTotalMinor});
+  const PaymentDialog({super.key, required this.ctrl, required this.partyId, required this.orderTotalMinor});
 
   @override
-  State<_PaymentDialog> createState() => _PaymentDialogState();
+  State<PaymentDialog> createState() => _PaymentDialogState();
 }
 
-class _PaymentDialogState extends State<_PaymentDialog> {
+class _PaymentDialogState extends State<PaymentDialog> {
   PaymentMode _mode = PaymentMode.cash;
   final _amountCtrl = TextEditingController();
   Future<PartyStats>? _statsF;
@@ -1257,7 +1257,7 @@ if (amt == null || amt < 0) {
                         }
                      }
 
-                      Navigator.pop(context, _PaymentChoice(mode: _mode, cashAmountMinor: amt));
+                      Navigator.pop(context, PaymentChoice(mode: _mode, cashAmountMinor: amt));
                     },
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.black, foregroundColor: Colors.white,

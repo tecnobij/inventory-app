@@ -78,7 +78,63 @@ class QuotationsController extends ChangeNotifier {
     _q = v.trim().toLowerCase();
     notifyListeners();
   }
+  Future<int> createSalesOrderFromQuote(int quoteId) async {
+    final orgId = settings.orgId!;
+    return await db.transaction(() async {
+      // ---- Fetch quote ----
+      final quote = await (db.select(db.quotations)
+            ..where((q) => q.id.equals(quoteId)))
+          .getSingle();
 
+      // ---- Fetch party ----
+      final party = await (db.select(db.parties)
+            ..where((p) => p.id.equals(quote.partyId)))
+          .getSingle();
+
+      // ---- Fetch quote items ----
+      final items = await (db.select(db.quotationItems)
+            ..where((qi) => qi.quotationId.equals(quoteId)))
+          .get();
+
+      // ---- Insert Sales Order ----
+      final soId = await db.into(db.salesOrders).insert(
+        SalesOrdersCompanion.insert(
+          orgId: orgId,
+          partyId: quote.partyId,
+        
+        //  status: drift.Value(), // define enum in schema
+          subtotalMinor: drift.Value(quote.subtotalMinor ?? 0),
+          taxMinor: drift.Value(quote.taxMinor ?? 0),
+          totalMinor: drift.Value(quote.totalMinor ?? 0),
+          createdAt: drift.Value(DateTime.now()),
+        ),
+      );
+
+      // ---- Insert Sales Order Items ----
+      for (final it in items) {
+        await db.into(db.salesOrderItems).insert(
+          SalesOrderItemsCompanion.insert(
+            salesOrderId: soId,
+            productId: it.productId,
+            qty: it.qty,
+            unitPriceMinor: it.unitPriceMinor,
+            lineTotalMinor: it.lineTotalMinor,
+            createdAt: drift.Value(DateTime.now()),
+          ),
+        );
+      }
+
+      // ---- Update Quote Status ----
+      await (db.update(db.quotations)
+            ..where((q) => q.id.equals(quoteId)))
+          .write(QuotationsCompanion(
+        status: drift.Value(QuoteStatus.accepted), // add "converted" enum
+        updatedAt: drift.Value(DateTime.now()),
+      ));
+
+      return soId;
+    });
+  }
   // ---------- Streams ----------
   Stream<List<QuoteVM>> watchQuotes() {
     final orgId = settings.orgId;
@@ -160,8 +216,10 @@ final quote = await query.getSingle();
     
   return QuoteDetailVM(
     id: quote.id,
+     partyId: party.id, 
     docNo: 'QT${quote.id.toString().padLeft(5, '0')}',
     partyName: party.name,
+    
     partyAddress: party.address,
     quoteDate: quote.quoteDate!,
     validTill: quote.validTill!,
@@ -174,11 +232,7 @@ final quote = await query.getSingle();
   );
 }
 
-Future<int> convertQuoteToSalesOrder(int quoteId) async {
-  // Implementation depends on your sales order structure
-  // Return the new sales order ID
-  return 0; // Placeholder
-}
+
 
 Future<void> updateQuoteStatus(int quoteId, QuoteStatus status) async {
   await (db.update(db.quotations)
